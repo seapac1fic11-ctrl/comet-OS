@@ -1,0 +1,2926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COMET-OS</title>
+<link id="favicon" rel="icon" href="data:,">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800&family=Sora:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --accent: #0A84FF;
+    --accent-glow: rgba(10, 132, 255, 0.5);
+    --glass-bg: rgba(255, 255, 255, 0.07);
+    --glass-bg-strong: rgba(255, 255, 255, 0.12);
+    --glass-border: rgba(255, 255, 255, 0.18);
+    --glass-blur: blur(30px) saturate(180%);
+    --text: #ffffff;
+    --text-dim: rgba(255, 255, 255, 0.62);
+    --text-faint: rgba(255, 255, 255, 0.35);
+    --shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    --radius-lg: 22px;
+    --radius-md: 14px;
+    --radius-sm: 10px;
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-smooth: cubic-bezier(0.4, 0.0, 0.2, 1);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--text); background: #0a0a12; user-select: none;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 5px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.28); }
+
+  /* ---------- Wallpaper ---------- */
+  #wallpaper {
+    position: fixed; inset: 0; z-index: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 15% 20%, rgba(64, 90, 255, 0.55), transparent 70%),
+      radial-gradient(ellipse 55% 45% at 85% 25%, rgba(255, 60, 140, 0.45), transparent 70%),
+      radial-gradient(ellipse 70% 55% at 70% 85%, rgba(0, 220, 190, 0.45), transparent 70%),
+      radial-gradient(ellipse 50% 40% at 25% 80%, rgba(255, 170, 40, 0.35), transparent 70%),
+      linear-gradient(160deg, #141428 0%, #0b0b1c 55%, #05050f 100%);
+  }
+  #wallpaper-img {
+    position: fixed; inset: 0; z-index: 0;
+    background-size: cover; background-position: center; background-repeat: no-repeat;
+    display: none;
+  }
+  .blob { position: fixed; z-index: 0; border-radius: 50%; opacity: 0.7; animation: drift 18s ease-in-out infinite alternate; pointer-events: none; }
+  body.custom-wall .blob { display: none; }
+  .blob.b1 { width: 420px; height: 420px; top: 10%; left: 8%; background: radial-gradient(circle, rgba(120, 80, 255, 0.65), transparent 70%); }
+  .blob.b2 { width: 360px; height: 360px; top: 55%; left: 70%; background: radial-gradient(circle, rgba(255, 90, 160, 0.55), transparent 70%); animation-delay: -6s; }
+  .blob.b3 { width: 300px; height: 300px; top: 70%; left: 20%; background: radial-gradient(circle, rgba(0, 230, 200, 0.5), transparent 70%); animation-delay: -12s; }
+  @keyframes drift { from { transform: translate(0,0) scale(1); } to { transform: translate(60px,-40px) scale(1.15); } }
+
+  /* ---------- Menu bar ---------- */
+  #menubar {
+    position: fixed; top: 0; left: 0; right: 0; height: 36px; z-index: 9000;
+    display: flex; align-items: center; padding: 0 12px; gap: 2px;
+    background: rgba(255,255,255,0.06);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+    font-size: 13px; font-weight: 500;
+    transition: transform 0.35s var(--ease-smooth), opacity 0.25s;
+  }
+  body.fs-active #menubar { transform: translateY(-100%); opacity: 0; pointer-events: none; }
+  #start-btn {
+    display: flex; align-items: center; gap: 8px; height: 100%; padding: 0 10px;
+    border-radius: 8px; cursor: pointer; transition: background 0.2s;
+  }
+  #start-btn:hover, #start-btn.open { background: rgba(255,255,255,0.15); }
+  #start-btn .logo-svg { width: 20px; height: 20px; display: flex; }
+  #start-btn .os-name { font-weight: 700; letter-spacing: 0.06em; font-size: 12.5px; }
+  #start-btn .os-name .accent { color: var(--accent); }
+  #menubar .spacer { flex: 1; }
+  #menubar .clock {
+    display: flex; align-items: center; gap: 7px; height: 100%; padding: 0 10px;
+    border-radius: 8px; cursor: default; font-variant-numeric: tabular-nums; transition: background 0.2s;
+  }
+  #menubar .clock:hover { background: rgba(255,255,255,0.12); }
+  #menubar .clock svg { width: 14px; height: 14px; opacity: 0.85; }
+  #menubar .clock #clock-time { font-weight: 600; }
+  #menubar .clock #clock-date { color: var(--text-dim); font-size: 12px; }
+
+  /* ---------- Start menu (COMET-OS dropdown) ---------- */
+  #start-menu {
+    position: fixed; top: 40px; left: 10px; width: 340px; z-index: 9500;
+    border-radius: 18px; padding: 14px;
+    background: rgba(20, 20, 36, 0.72);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.12);
+    opacity: 0; transform: translateY(-8px) scale(0.97); pointer-events: none;
+    transition: opacity 0.2s, transform 0.25s var(--ease-spring);
+    max-height: calc(100vh - 120px); overflow-y: auto;
+  }
+  #start-menu.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+  #start-menu h3 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--text-dim); margin: 10px 6px 8px;
+  }
+  #start-search {
+    width: 100%; padding: 10px 14px; border-radius: 12px; margin-bottom: 10px;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    color: #fff; font-family: inherit; font-size: 13px; outline: none;
+  }
+  #start-search:focus { border-color: var(--accent); }
+  #start-search::placeholder { color: var(--text-dim); }
+  .start-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 10px; border-radius: 10px; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .start-item:hover { background: rgba(255,255,255,0.12); }
+  .start-item .si-icon { width: 30px; height: 30px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 9px; background: rgba(255,255,255,0.08); }
+  .start-item .si-icon svg { width: 18px; height: 18px; }
+  .start-item .si-name { font-size: 13.5px; font-weight: 600; }
+  .start-item .si-sub { font-size: 11px; color: var(--text-dim); }
+  .start-empty { font-size: 12.5px; color: var(--text-dim); padding: 6px 10px 10px; }
+
+  /* ---------- Dock (auto-hide, icons lift above panel) ---------- */
+  #dock-trigger {
+    position: fixed; bottom: 0; left: 0; right: 0; height: 14px; z-index: 7999;
+  }
+  #dock-wrap {
+    position: fixed; left: 50%; bottom: 0; transform: translateX(-50%) translateY(calc(100% + 20px));
+    z-index: 8000; transition: transform 0.5s var(--ease-spring);
+    padding: 0 4px;
+  }
+  #dock-wrap.visible { transform: translateX(-50%) translateY(0); }
+  #dock {
+    display: flex; align-items: flex-end; gap: 8px; padding: 10px 14px 10px;
+    border-radius: 22px;
+    background: rgba(255,255,255,0.10);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    border: 1px solid rgba(255,255,255,0.22);
+    box-shadow: 0 16px 50px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.22);
+    overflow: visible;
+    position: relative;
+  }
+  #dock::before {
+    content: ''; position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  }
+  .dock-item {
+    position: relative; width: 54px; height: 54px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.18);
+    transition: transform 0.28s var(--ease-spring), background 0.2s, box-shadow 0.2s;
+    transform-origin: bottom center; flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+  }
+  .dock-item:hover {
+    transform: translateY(-18px) scale(1.22);
+    background: rgba(255,255,255,0.20);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.4), 0 0 20px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+  .dock-item:active { transform: translateY(-8px) scale(1.08); }
+  .dock-item svg { width: 28px; height: 28px; pointer-events: none; }
+  .dock-item .dot {
+    position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%) scale(0);
+    width: 5px; height: 5px; border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 8px var(--accent-glow); transition: transform 0.3s var(--ease-spring);
+  }
+  .dock-item.running .dot { transform: translateX(-50%) scale(1); }
+  .dock-item .tooltip {
+    position: absolute; bottom: calc(100% + 22px); left: 50%;
+    transform: translateX(-50%) translateY(6px) scale(0.85);
+    padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; white-space: nowrap;
+    background: rgba(15,15,25,0.85);
+    -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.15);
+    opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.25s var(--ease-spring);
+  }
+  .dock-item:hover .tooltip { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+
+  /* ---------- Windows ---------- */
+  #window-layer { position: fixed; inset: 0; z-index: 5000; pointer-events: none; }
+  .app-window {
+    position: absolute; min-width: 360px; min-height: 240px;
+    display: flex; flex-direction: column; border-radius: var(--radius-lg); overflow: hidden;
+    pointer-events: auto;
+    background: rgba(22, 22, 38, 0.65);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 24px 70px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.15);
+    opacity: 0; transform: scale(0.92);
+    animation: winOpen 0.35s var(--ease-spring) forwards;
+  }
+  @keyframes winOpen { to { opacity: 1; transform: scale(1); } }
+  .app-window.closing { animation: winClose 0.25s var(--ease-smooth) forwards; }
+  @keyframes winClose { to { opacity: 0; transform: scale(0.90); } }
+  .app-window.minimized { display: none; }
+  .app-window.focused {
+    box-shadow: 0 28px 80px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.28), 0 0 50px var(--accent-glow);
+  }
+  .app-window.fullscreen {
+    top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important;
+    border-radius: 0; border: none;
+  }
+  .app-window.fullscreen .win-titlebar { display: none; }
+  .app-window.fullscreen .win-body { background: #1a1a28; }
+  .app-window.fullscreen .rz { display: none; }
+  .app-window.fullscreen .fs-controls {
+    position: absolute; top: 14px; right: 14px; z-index: 100;
+    display: flex; gap: 6px;
+    background: rgba(0,0,0,0.45);
+    padding: 6px; border-radius: 12px;
+    -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.15);
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .app-window.fullscreen:hover .fs-controls { opacity: 1; }
+  .app-window.fullscreen .fs-controls button {
+    width: 34px; height: 34px; border: none; border-radius: 8px;
+    background: rgba(255,255,255,0.12); color: #fff; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .app-window.fullscreen .fs-controls button:hover { background: rgba(255,255,255,0.25); }
+  .app-window.fullscreen .fs-controls button.close:hover { background: #e81123; }
+  .app-window.fullscreen .fs-controls button svg { width: 14px; height: 14px; }
+
+  .win-titlebar {
+    height: 40px; flex-shrink: 0; display: flex; align-items: center; padding-left: 12px;
+    background: rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.10);
+    cursor: default; touch-action: none;
+  }
+  .win-titlebar .win-title {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 600; flex: 1; pointer-events: none;
+  }
+  .win-titlebar .win-title .wt-icon { width: 16px; height: 16px; display: flex; }
+  .win-titlebar .win-title .wt-icon svg { width: 16px; height: 16px; }
+  .win-controls { display: flex; height: 100%; gap: 2px; }
+  .win-btn {
+    width: 46px; height: 100%; display: flex; align-items: center; justify-content: center;
+    border: none; cursor: pointer; background: transparent; color: rgba(255,255,255,0.85);
+    transition: background 0.15s;
+  }
+  .win-btn svg { width: 12px; height: 12px; }
+  .win-btn.min:hover, .win-btn.fs:hover { background: rgba(255,255,255,0.15); }
+  .win-btn.close:hover { background: #e81123; color: #fff; }
+  .win-btn.fs svg { width: 13px; height: 13px; }
+  .win-body { flex: 1; position: relative; background: rgba(10,10,18,0.30); overflow: hidden; }
+  .win-body iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
+  .win-body.native { overflow-y: auto; user-select: text; }
+  .rz { position: absolute; z-index: 10; touch-action: none; }
+  .rz.n { top: -4px; left: 10px; right: 10px; height: 8px; cursor: ns-resize; }
+  .rz.s { bottom: -4px; left: 10px; right: 10px; height: 8px; cursor: ns-resize; }
+  .rz.e { right: -4px; top: 10px; bottom: 10px; width: 8px; cursor: ew-resize; }
+  .rz.w { left: -4px; top: 10px; bottom: 10px; width: 8px; cursor: ew-resize; }
+  .rz.ne { top: -5px; right: -5px; width: 14px; height: 14px; cursor: nesw-resize; }
+  .rz.nw { top: -5px; left: -5px; width: 14px; height: 14px; cursor: nwse-resize; }
+  .rz.se { bottom: -5px; right: -5px; width: 14px; height: 14px; cursor: nwse-resize; }
+  .rz.sw { bottom: -5px; left: -5px; width: 14px; height: 14px; cursor: nesw-resize; }
+
+  /* ---------- Context menu ---------- */
+  .ctx-menu {
+    position: fixed; z-index: 15000; min-width: 200px;
+    padding: 6px; border-radius: 12px;
+    background: rgba(24, 24, 38, 0.85);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 14px 40px rgba(0,0,0,0.5);
+    opacity: 0; transform: scale(0.94); pointer-events: none;
+    transition: opacity 0.16s, transform 0.18s var(--ease-spring);
+  }
+  .ctx-menu.open { opacity: 1; transform: scale(1); pointer-events: auto; }
+  .ctx-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; border-radius: 8px; cursor: pointer;
+    font-size: 13px; transition: background 0.12s;
+  }
+  .ctx-item:hover { background: var(--accent); color: #fff; }
+  .ctx-item svg { width: 15px; height: 15px; opacity: 0.85; }
+  .ctx-sep { height: 1px; background: rgba(255,255,255,0.10); margin: 4px 8px; }
+
+  /* ---------- Toast ---------- */
+  #toast-stack {
+    position: fixed; top: 44px; right: 14px; z-index: 12000;
+    display: flex; flex-direction: column; gap: 10px; width: 320px; pointer-events: none;
+  }
+  .toast {
+    pointer-events: auto;
+    padding: 12px 14px; border-radius: 14px;
+    background: rgba(24,24,38,0.85);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+    display: flex; gap: 10px; align-items: flex-start;
+    animation: toastIn 0.4s var(--ease-spring);
+  }
+  @keyframes toastIn { from { opacity: 0; transform: translateX(40px); } }
+  .toast.closing { animation: toastOut 0.3s var(--ease-smooth) forwards; }
+  @keyframes toastOut { to { opacity: 0; transform: translateX(40px); } }
+  .toast .t-icon { width: 28px; height: 28px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: var(--accent); }
+  .toast .t-icon svg { width: 16px; height: 16px; }
+  .toast .t-body { flex: 1; }
+  .toast .t-title { font-size: 12.5px; font-weight: 700; margin-bottom: 2px; }
+  .toast .t-text { font-size: 12px; color: var(--text-dim); line-height: 1.4; }
+  .toast .t-close { cursor: pointer; color: var(--text-dim); font-size: 18px; line-height: 1; padding: 0 4px; }
+  .toast .t-close:hover { color: #fff; }
+
+  /* ---------- Native app UI ---------- */
+  .nat { padding: 22px; }
+  .nat h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .nat .sub { font-size: 12.5px; color: var(--text-dim); margin-bottom: 18px; }
+  .searchbar {
+    width: 100%; padding: 11px 14px; border-radius: 12px; margin-bottom: 16px;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    color: #fff; font-family: inherit; font-size: 13.5px; outline: none;
+  }
+  .searchbar:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .searchbar::placeholder { color: var(--text-dim); }
+  .app-card {
+    padding: 16px; border-radius: 16px; margin-bottom: 12px;
+    background: var(--glass-bg); border: 1px solid rgba(255,255,255,0.12);
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .app-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .app-card .row1 { display: flex; align-items: center; gap: 12px; }
+  .app-cover {
+    width: 52px; height: 52px; border-radius: 13px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 22px; color: #fff;
+    background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 50%, #000));
+    background-size: cover; background-position: center;
+    overflow: hidden;
+  }
+  .app-card .a-title { font-weight: 700; font-size: 14.5px; }
+  .app-card .a-author { font-size: 12px; color: var(--text-dim); }
+  .app-card .a-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .app-card .a-tag {
+    font-size: 10px; padding: 2px 8px; border-radius: 8px;
+    background: rgba(255,255,255,0.08); color: var(--text-dim); border: 1px solid rgba(255,255,255,0.08);
+  }
+  .app-card .a-meta { font-size: 11.5px; color: var(--text-dim); margin-left: auto; text-align: right; line-height: 1.5; }
+  .app-card .a-desc { font-size: 12.5px; color: var(--text-dim); margin: 10px 0 12px; line-height: 1.5; }
+  .star-row { color: var(--accent); font-size: 13px; letter-spacing: 1px; }
+  .btn {
+    padding: 8px 16px; border: none; border-radius: 10px; cursor: pointer;
+    font-family: inherit; font-size: 12.5px; font-weight: 600; color: #fff;
+    background: var(--accent); transition: filter 0.15s, transform 0.15s;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:hover { filter: brightness(1.12); }
+  .btn:active { transform: scale(0.97); }
+  .btn.ghost { background: rgba(255,255,255,0.12); }
+  .btn.danger { background: #e81123; }
+  .btn.success { background: #30D158; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn svg { width: 14px; height: 14px; }
+  .rate-stars { display: inline-flex; gap: 2px; margin-left: 10px; vertical-align: middle; align-items: center; }
+  .rate-stars span { cursor: pointer; display: inline-flex; color: rgba(255,255,255,0.3); transition: color 0.15s, transform 0.15s; }
+  .rate-stars span svg { width: 16px; height: 16px; }
+  .rate-stars span:hover { transform: scale(1.2); }
+  .rate-stars span.lit { color: var(--accent); }
+  .rate-stars span.lit svg path { fill: var(--accent); }
+  .form-card {
+    padding: 18px; border-radius: 16px; margin-bottom: 16px;
+    background: var(--glass-bg); border: 1px solid rgba(255,255,255,0.12);
+  }
+  .form-card label { display: block; font-size: 12px; font-weight: 600; margin: 12px 0 6px; color: var(--text-dim); }
+  .form-card label:first-child { margin-top: 0; }
+  .inp {
+    width: 100%; padding: 10px 12px; border-radius: 10px;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    color: #fff; font-family: inherit; font-size: 13px; outline: none;
+  }
+  .inp:focus { border-color: var(--accent); }
+  textarea.inp { min-height: 110px; resize: vertical; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .settings-section {
+    padding: 18px; border-radius: 16px; margin-bottom: 14px;
+    background: var(--glass-bg); border: 1px solid rgba(255,255,255,0.12);
+  }
+  .settings-section h3 { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .settings-section p { font-size: 12px; color: var(--text-dim); margin-bottom: 12px; }
+  .swatch-mini-grid { display: grid; grid-template-columns: repeat(15, 1fr); gap: 8px; }
+  .swm { aspect-ratio: 1; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.15s; }
+  .swm:hover { transform: scale(1.2); }
+  .swm.sel { border-color: #fff; transform: scale(1.12); }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  #wall-preview {
+    width: 100%; height: 110px; border-radius: 12px; margin-bottom: 12px;
+    background-size: cover; background-position: center;
+    border: 1px solid rgba(255,255,255,0.15); display: none;
+  }
+  .switch { position: relative; width: 42px; height: 24px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch .slider {
+    position: absolute; inset: 0; cursor: pointer;
+    background: rgba(255,255,255,0.15); border-radius: 24px; transition: 0.25s;
+  }
+  .switch .slider::before {
+    content: ''; position: absolute; height: 18px; width: 18px;
+    left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.25s var(--ease-spring);
+  }
+  .switch input:checked + .slider { background: var(--accent); }
+  .switch input:checked + .slider::before { transform: translateX(18px); }
+  .setting-row { display: flex; align-items: center; gap: 14px; padding: 8px 0; }
+  .setting-row .sr-label { flex: 1; font-size: 13px; }
+  .setting-row .sr-desc { font-size: 11.5px; color: var(--text-dim); margin-top: 2px; }
+  .tag-chip {
+    padding: 5px 12px; border-radius: 16px; font-size: 12px; cursor: pointer;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+    color: var(--text-dim); transition: all 0.15s;
+  }
+  .tag-chip:hover { background: rgba(255,255,255,0.12); color: #fff; }
+  .tag-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .tag-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; max-height: 140px; overflow-y: auto; }
+  .store-section-title { font-size: 14px; font-weight: 700; margin: 18px 0 10px; display: flex; align-items: center; gap: 8px; }
+  .store-banner {
+    padding: 18px 20px; border-radius: 16px; margin-bottom: 16px;
+    background: linear-gradient(135deg, var(--accent), #5E5CE6);
+    display: flex; gap: 14px; align-items: center;
+  }
+  .store-banner .sb-icon { width: 40px; height: 40px; flex-shrink: 0; }
+  .store-banner .sb-icon svg { width: 40px; height: 40px; }
+  .store-banner .sb-text h2 { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+  .store-banner .sb-text p { font-size: 12px; opacity: 0.85; }
+  .featured-row {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px;
+    margin-bottom: 18px;
+  }
+  .featured-card {
+    padding: 14px; border-radius: 14px; cursor: pointer;
+    background: var(--glass-bg); border: 1px solid rgba(255,255,255,0.1);
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .featured-card:hover { transform: translateY(-3px); border-color: var(--accent); }
+  .featured-card .fc-cover { width: 100%; aspect-ratio: 1; border-radius: 10px; margin-bottom: 8px; background: linear-gradient(135deg, var(--accent), #5E5CE6); background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 700; }
+  .featured-card .fc-title { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+  .featured-card .fc-author { font-size: 11px; color: var(--text-dim); }
+  .review-card {
+    padding: 12px 14px; border-radius: 10px; margin-top: 8px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+  }
+  .review-card .rv-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .review-card .rv-author { font-size: 12px; font-weight: 600; }
+  .review-card .rv-stars { color: var(--accent); font-size: 11px; }
+  .review-card .rv-text { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+
+  /* ---------- Studio ---------- */
+  .studio-app { display: flex; flex-direction: column; height: 100%; }
+  .studio-tabs {
+    display: flex; gap: 2px; padding: 0 8px; background: rgba(0,0,0,0.25);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .studio-tabs::-webkit-scrollbar { display: none; }
+  .studio-tab {
+    padding: 8px 14px; font-size: 12px; cursor: pointer; border-radius: 8px 8px 0 0;
+    color: var(--text-dim); border-bottom: 2px solid transparent; transition: all 0.15s;
+    font-family: 'JetBrains Mono', monospace; white-space: nowrap;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .studio-tab.active { color: #fff; border-bottom-color: var(--accent); background: rgba(255,255,255,0.04); }
+  .studio-tab .ft-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .studio-tab .close-x { opacity: 0.5; cursor: pointer; }
+  .studio-tab .close-x:hover { opacity: 1; }
+  .studio-add-tab {
+    padding: 8px 12px; cursor: pointer; color: var(--text-dim);
+    display: flex; align-items: center;
+  }
+  .studio-add-tab:hover { color: #fff; }
+  .studio-add-tab svg { width: 16px; height: 16px; }
+  .studio-body { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+  .studio-editor-wrap { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  #st-editor {
+    flex: 1 1 auto; min-height: 0; height: 100%; overflow: hidden;
+    background: #0a0a14; position: relative;
+  }
+  #st-editor > .CodeMirror {
+    height: 100% !important; width: 100%;
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  }
+  #st-editor > textarea {
+    width: 100%; height: 100%;
+  }
+  .studio-editor {
+    flex: 1; background: #0a0a14; color: #e6e6e6; border: none; outline: none;
+    padding: 14px; font-family: 'JetBrains Mono', monospace; font-size: 13px;
+    line-height: 1.55; resize: none; tab-size: 2; width: 100%;
+  }
+  .studio-preview {
+    flex: 1; background: #fff; border-left: 1px solid rgba(255,255,255,0.08);
+    display: flex; flex-direction: column; min-width: 0; position: relative;
+  }
+  .studio-preview iframe {
+    position: relative !important; inset: auto !important;
+    flex: 1; border: none; background: #fff; min-height: 0; width: 100%; height: 100%;
+  }
+  .studio-console {
+    height: 140px; flex-shrink: 0; background: #0a0a14; border-top: 1px solid rgba(255,255,255,0.08);
+    display: flex; flex-direction: column;
+  }
+  .studio-console .sc-header {
+    display: flex; align-items: center; gap: 8px; padding: 6px 12px;
+    background: rgba(0,0,0,0.3); border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .studio-console .sc-header .sc-clear {
+    margin-left: auto; cursor: pointer; padding: 2px 8px; border-radius: 4px;
+  }
+  .studio-console .sc-header .sc-clear:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .studio-console .sc-body {
+    flex: 1; overflow-y: auto; padding: 6px; font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; line-height: 1.5;
+  }
+  .sc-line { padding: 2px 8px; border-radius: 4px; word-break: break-word; }
+  .sc-line.log { color: #b8f5b8; }
+  .sc-line.info { color: #64D2FF; }
+  .sc-line.warn { color: #FFD60A; background: rgba(255,214,10,0.08); }
+  .sc-line.error { color: #ff6b6b; background: rgba(255,107,107,0.08); }
+  .sc-line .sc-prefix { color: var(--text-faint); margin-right: 6px; }
+  .studio-toolbar {
+    padding: 8px 12px; background: rgba(0,0,0,0.25);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  }
+  .studio-toolbar .st-info { flex: 1; font-size: 11.5px; color: var(--text-dim); }
+
+  /* ---------- Setup ---------- */
+  #setup {
+    position: fixed; inset: 0; z-index: 10000;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(8, 8, 16, 0.5);
+    -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px);
+    transition: opacity 0.6s var(--ease-smooth);
+  }
+  #setup.done { opacity: 0; pointer-events: none; }
+  .setup-stage {
+    width: min(560px, 92vw); text-align: center;
+    display: none; flex-direction: column; align-items: center;
+  }
+  .setup-stage.active { display: flex; animation: stageIn 0.55s var(--ease-spring); }
+  @keyframes stageIn { from { opacity: 0; transform: translateY(24px) scale(0.96); } }
+  #welcome-word {
+    font-family: 'Sora', sans-serif; font-weight: 700;
+    font-size: clamp(56px, 10vw, 108px); letter-spacing: 0.14em; color: #fff;
+    text-shadow: 0 0 40px var(--accent-glow), 0 4px 20px rgba(0,0,0,0.4);
+    animation: riseIn 1.4s var(--ease-spring) both;
+  }
+  @keyframes riseIn {
+    0% { opacity: 0; transform: translateY(40px) scale(0.94); filter: blur(12px); letter-spacing: 0.4em; }
+    100% { opacity: 1; transform: none; filter: blur(0); letter-spacing: 0.14em; }
+  }
+  #welcome-sub {
+    margin-top: 16px; font-size: 15px; font-weight: 300; letter-spacing: 0.45em;
+    text-transform: uppercase; color: var(--text-dim);
+    opacity: 0; animation: fadeUp 1s 0.7s var(--ease-smooth) forwards;
+  }
+  #welcome-sub .accent { color: var(--accent); font-weight: 500; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .comet-streak {
+    position: fixed; top: -50px; left: -50px;
+    width: 4px; height: 4px; border-radius: 50%; background: #fff;
+    box-shadow: 0 0 20px 4px rgba(255,255,255,0.8), 0 0 40px 8px var(--accent), -30px 30px 60px 2px rgba(255,255,255,0.3);
+    animation: streak 2s ease-out forwards; z-index: 10001; pointer-events: none;
+  }
+  @keyframes streak {
+    0% { transform: translate(0, 0) rotate(35deg); opacity: 0; }
+    10% { opacity: 1; }
+    100% { transform: translate(110vw, 70vh) rotate(35deg); opacity: 0; }
+  }
+  .setup-card {
+    width: 100%; padding: 34px 30px; border-radius: var(--radius-lg); text-align: left;
+    background: rgba(255,255,255,0.10);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,0.15);
+  }
+  .setup-card h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .setup-card p { font-size: 13.5px; color: var(--text-dim); margin-bottom: 24px; }
+  .step-ind { display: inline-flex; gap: 6px; margin-bottom: 18px; }
+  .step-ind span { width: 22px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.18); transition: background 0.3s; }
+  .step-ind span.on { background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+  #color-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 10px; margin-bottom: 26px; }
+  .swatch { aspect-ratio: 1; border-radius: 50%; cursor: pointer; border: 2px solid transparent; box-shadow: 0 2px 8px rgba(0,0,0,0.3); transition: transform 0.2s var(--ease-spring); }
+  .swatch:hover { transform: scale(1.18); }
+  .swatch.selected { border-color: #fff; transform: scale(1.14); box-shadow: 0 0 0 3px rgba(255,255,255,0.2); }
+  .btn-primary {
+    width: 100%; padding: 13px; border: none; border-radius: var(--radius-md);
+    font-family: inherit; font-size: 14.5px; font-weight: 600; color: #fff;
+    background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #000 15%));
+    box-shadow: 0 6px 20px var(--accent-glow); cursor: pointer;
+    transition: transform 0.2s var(--ease-spring), filter 0.2s, opacity 0.2s;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-primary:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.1); }
+  .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+  .btn-primary svg { width: 16px; height: 16px; }
+  .wall-option-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 22px; }
+  .wall-option {
+    padding: 20px 14px; border-radius: var(--radius-md); cursor: pointer; text-align: center;
+    background: rgba(255,255,255,0.06); border: 2px solid rgba(255,255,255,0.12);
+    transition: transform 0.25s var(--ease-spring), border-color 0.2s;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .wall-option:hover { transform: translateY(-4px); }
+  .wall-option.selected { border-color: var(--accent); box-shadow: 0 0 24px var(--accent-glow); }
+  .wall-option .wo-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
+  .wall-option .wo-icon svg { width: 36px; height: 36px; }
+  .wall-option .wo-name { font-weight: 700; font-size: 14px; margin-bottom: 3px; }
+  .wall-option .wo-desc { font-size: 11.5px; color: var(--text-dim); line-height: 1.45; }
+  .wall-preview-box {
+    width: 100%; height: 120px; border-radius: 12px; margin-bottom: 16px;
+    background-size: cover; background-position: center;
+    border: 1px solid rgba(255,255,255,0.15); display: none;
+  }
+
+  /* ---------- Tutorial ---------- */
+  #tutorial {
+    position: fixed; inset: 0; z-index: 10000;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(8, 8, 16, 0.5);
+    -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px);
+    transition: opacity 0.6s var(--ease-smooth);
+  }
+  #tutorial.done { opacity: 0; pointer-events: none; }
+  #tut-card {
+    width: min(520px, 92vw); padding: 34px 30px; border-radius: var(--radius-lg); text-align: left;
+    background: rgba(255,255,255,0.10); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border); box-shadow: var(--shadow);
+  }
+  #tut-card .t-icon { width: 48px; height: 48px; margin-bottom: 14px; display: flex; }
+  #tut-card .t-icon svg { width: 48px; height: 48px; }
+  #tut-card h2 { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
+  #tut-card p { font-size: 13.5px; color: var(--text-dim); line-height: 1.65; margin-bottom: 22px; }
+  #tut-dots { display: flex; gap: 6px; justify-content: center; margin-bottom: 18px; }
+  #tut-dots span { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.2); transition: background 0.2s; }
+  #tut-dots span.on { background: var(--accent); }
+  .btn-skip {
+    margin-top: 14px; background: none; border: none; color: var(--text-dim);
+    font-family: inherit; font-size: 13px; cursor: pointer; text-decoration: underline;
+  }
+  .btn-skip:hover { color: #fff; }
+
+  /* ---------- CodeMirror overrides ---------- */
+  .CodeMirror {
+    height: 100% !important;
+    background: #0a0a14 !important;
+    color: #e6e6e6 !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 13px !important;
+    line-height: 1.55 !important;
+  }
+  .CodeMirror-gutters {
+    background: #0a0a14 !important;
+    border-right: 1px solid rgba(255,255,255,0.06) !important;
+  }
+  .CodeMirror-linenumber { color: rgba(255,255,255,0.3) !important; }
+  .CodeMirror-cursor { border-left: 2px solid var(--accent) !important; }
+  .CodeMirror-selected { background: rgba(10,132,255,0.25) !important; }
+  .cm-s-material-darker.CodeMirror { background: #0a0a14 !important; }
+  .cm-s-material-darker .cm-keyword { color: #C792EA !important; }
+  .cm-s-material-darker .cm-string { color: #C3E88D !important; }
+  .cm-s-material-darker .cm-number { color: #F78C6C !important; }
+  .cm-s-material-darker .cm-tag { color: #F07178 !important; }
+  .cm-s-material-darker .cm-attribute { color: #FFCB6B !important; }
+  .cm-s-material-darker .cm-comment { color: #546E7A !important; font-style: italic; }
+  .cm-s-material-darker .cm-variable { color: #EEFFFF !important; }
+  .cm-s-material-darker .cm-variable-2 { color: #82AAFF !important; }
+  .cm-s-material-darker .cm-property { color: #82AAFF !important; }
+  .cm-s-material-darker .cm-def { color: #82AAFF !important; }
+  .cm-s-material-darker .cm-atom { color: #F78C6C !important; }
+  .cm-s-material-darker .cm-builtin { color: #FFCB6B !important; }
+  .studio-editor-wrap { position: relative; min-height: 0; }
+
+  /* ---------- Comets (multiple, every boot) ---------- */
+  .comet {
+    position: fixed; width: 6px; height: 6px; border-radius: 50%; background: #fff;
+    box-shadow: 0 0 20px 4px rgba(255,255,255,0.9), 0 0 40px 10px var(--accent), 0 0 60px 15px rgba(255,255,255,0.4);
+    z-index: 10001; pointer-events: none; opacity: 0;
+  }
+  .comet::before {
+    content: ''; position: absolute; top: 50%; right: 100%;
+    width: 180px; height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), rgba(255,255,255,0.3), rgba(255,255,255,0.8));
+    transform: translateY(-50%);
+    border-radius: 2px;
+    filter: blur(0.5px);
+  }
+  .comet.c2 { width: 4px; height: 4px; }
+  .comet.c2::before { width: 120px; }
+  .comet.c3 { width: 8px; height: 8px; }
+  .comet.c3::before { width: 220px; }
+  .comet.c4 { width: 3px; height: 3px; }
+  .comet.c4::before { width: 90px; }
+  .comet.c5 { width: 5px; height: 5px; }
+  .comet.c5::before { width: 150px; }
+  /* All comets fly toward the bottom-left corner.
+     Tail trails behind toward top-right (rotation 135deg). */
+  @keyframes cometFly1 {
+    0% { transform: translate(110vw, -50px) rotate(135deg); opacity: 0; }
+    5% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translate(-200px, 110vh) rotate(135deg); opacity: 0; }
+  }
+  @keyframes cometFly2 {
+    0% { transform: translate(110vw, 10vh) rotate(135deg); opacity: 0; }
+    8% { opacity: 1; }
+    92% { opacity: 1; }
+    100% { transform: translate(-200px, 110vh) rotate(135deg); opacity: 0; }
+  }
+  @keyframes cometFly3 {
+    0% { transform: translate(70vw, -50px) rotate(135deg); opacity: 0; }
+    6% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translate(-200px, 110vh) rotate(135deg); opacity: 0; }
+  }
+  @keyframes cometFly4 {
+    0% { transform: translate(110vw, 30vh) rotate(135deg); opacity: 0; }
+    10% { opacity: 1; }
+    95% { opacity: 1; }
+    100% { transform: translate(-200px, 110vh) rotate(135deg); opacity: 0; }
+  }
+  @keyframes cometFly5 {
+    0% { transform: translate(90vw, -50px) rotate(135deg); opacity: 0; }
+    7% { opacity: 1; }
+    93% { opacity: 1; }
+    100% { transform: translate(-200px, 110vh) rotate(135deg); opacity: 0; }
+  }
+
+  /* ---------- Spotlight tutorial ---------- */
+  /* 4-div spotlight technique: 4 dark rectangles (top/bottom/left/right)
+     form a cutout around the target. This always works, unlike box-shadow
+     which can be clipped by parent overflow. */
+  #tut-overlay {
+    position: fixed; inset: 0; z-index: 11000; pointer-events: none;
+    opacity: 0; transition: opacity 0.4s;
+    visibility: hidden;
+  }
+  #tut-overlay.active { opacity: 1; pointer-events: auto; visibility: visible; }
+  .tut-panel {
+    position: absolute; background: rgba(0,0,0,0.7);
+    transition: all 0.4s var(--ease-smooth);
+    pointer-events: none;
+  }
+  .tut-panel.top { top: 0; left: 0; right: 0; }
+  .tut-panel.bottom { bottom: 0; left: 0; right: 0; }
+  .tut-panel.left { top: 0; bottom: 0; left: 0; }
+  .tut-panel.right { top: 0; bottom: 0; right: 0; }
+  /* When NOT in spotlight mode, just one full-screen dim */
+  #tut-overlay.active:not(.spotlight) .tut-panel.top { height: 100%; }
+  #tut-overlay.active:not(.spotlight) .tut-panel.bottom,
+  #tut-overlay.active:not(.spotlight) .tut-panel.left,
+  #tut-overlay.active:not(.spotlight) .tut-panel.right { display: none; }
+  #tut-overlay.spotlight .tut-panel { display: block; }
+  #tut-overlay:not(.spotlight) .tut-panel:not(.top) { display: none; }
+
+  /* Spotlight border ring around the cutout */
+  #tut-ring {
+    position: absolute; pointer-events: none; z-index: 11001;
+    border: 2px solid var(--accent);
+    border-radius: 14px;
+    box-shadow: 0 0 30px 6px var(--accent-glow), 0 0 60px 12px rgba(10,132,255,0.3);
+    opacity: 0; transition: all 0.4s var(--ease-smooth);
+  }
+  #tut-overlay.spotlight #tut-ring { opacity: 1; }
+
+  #tut-pointer {
+    position: absolute; z-index: 11002; pointer-events: none;
+    width: 50px; height: 50px; opacity: 0;
+    transition: opacity 0.3s, left 0.5s var(--ease-spring), top 0.5s var(--ease-spring);
+  }
+  #tut-pointer svg { width: 50px; height: 50px; filter: drop-shadow(0 0 10px var(--accent-glow)); }
+  #tut-pointer.show { opacity: 1; animation: pointerPulse 1.5s ease-in-out infinite; }
+  @keyframes pointerPulse {
+    0%, 100% { transform: translate(0,0); }
+    50% { transform: translate(-6px, -6px); }
+  }
+  #tut-bubble {
+    position: absolute; z-index: 11003;
+    width: min(400px, 90vw); padding: 22px 24px; border-radius: 18px;
+    background: rgba(20,20,36,0.95);
+    -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 40px var(--accent-glow);
+    opacity: 0; transform: scale(0.9);
+    transition: opacity 0.4s, transform 0.4s var(--ease-spring), left 0.5s var(--ease-smooth), top 0.5s var(--ease-smooth);
+    pointer-events: none;
+    visibility: hidden;
+  }
+  #tut-bubble.show { opacity: 1; transform: scale(1); pointer-events: auto; visibility: visible; }
+  #tut-bubble .tb-step { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent); font-weight: 700; margin-bottom: 6px; }
+  #tut-bubble .tb-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  #tut-bubble .tb-text { font-size: 13.5px; color: var(--text-dim); line-height: 1.6; margin-bottom: 18px; }
+  #tut-bubble .tb-controls { display: flex; gap: 10px; align-items: center; }
+  #tut-bubble .tb-dots { display: flex; gap: 6px; flex: 1; }
+  #tut-bubble .tb-dots span { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.2); transition: background 0.2s; }
+  #tut-bubble .tb-dots span.on { background: var(--accent); }
+  #tut-bubble .tb-skip { background: none; border: none; color: var(--text-dim); font-family: inherit; font-size: 12.5px; cursor: pointer; }
+  #tut-bubble .tb-skip:hover { color: #fff; }
+  #tut-bubble .tb-next {
+    padding: 8px 18px; border-radius: 10px; border: none;
+    background: var(--accent); color: #fff; font-family: inherit;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  #tut-bubble .tb-next:hover { filter: brightness(1.15); }
+
+  @media (max-width: 640px) {
+    #color-grid { grid-template-columns: repeat(6, 1fr); }
+    .swatch-mini-grid { grid-template-columns: repeat(10, 1fr); }
+    .wall-option-row { grid-template-columns: 1fr; }
+    #menubar .clock #clock-date { display: none; }
+    .dock-item { width: 48px; height: 48px; }
+    .studio-preview { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="wallpaper"></div>
+<div id="wallpaper-img"></div>
+<div class="blob b1"></div>
+<div class="blob b2"></div>
+<div class="blob b3"></div>
+
+<header id="menubar">
+  <div id="start-btn" title="Click for apps">
+    <span class="logo-svg" id="logo-svg"></span>
+    <span class="os-name">COMET<span class="accent">-OS</span></span>
+  </div>
+  <div class="spacer"></div>
+  <div class="clock" title="Device time">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+    </svg>
+    <span id="clock-date"></span>
+    <span id="clock-time"></span>
+  </div>
+</header>
+
+<div id="start-menu"></div>
+
+<div id="dock-trigger"></div>
+<div id="dock-wrap">
+  <nav id="dock"></nav>
+</div>
+
+<div id="window-layer"></div>
+<div id="toast-stack"></div>
+
+<div id="setup">
+  <div class="setup-stage active" id="stage-welcome">
+    <div id="welcome-word">COMET</div>
+    <div id="welcome-sub">by <span class="accent">skyworks</span></div>
+  </div>
+  <div class="setup-stage" id="stage-color">
+    <div class="setup-card">
+      <div class="step-ind"><span class="on"></span><span></span></div>
+      <h2>Pick your accent color</h2>
+      <p>Choose one of 30 colors. It will be used for buttons, icons, and highlights.</p>
+      <div id="color-grid"></div>
+      <button class="btn-primary" id="btn-color-next" disabled>Continue</button>
+    </div>
+  </div>
+  <div class="setup-stage" id="stage-wallpaper">
+    <div class="setup-card">
+      <div class="step-ind"><span class="on"></span><span class="on"></span></div>
+      <h2>Choose your wallpaper</h2>
+      <p>Upload your own image or GIF, or go with the classic COMET gradient.</p>
+      <div class="wall-option-row">
+        <div class="wall-option selected" data-wall="classic">
+          <div class="wo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></div>
+          <div class="wo-name">Classic</div>
+          <div class="wo-desc">The default COMET-OS gradient wallpaper</div>
+        </div>
+        <div class="wall-option" data-wall="upload">
+          <div class="wo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg></div>
+          <div class="wo-name">Upload</div>
+          <div class="wo-desc">Use your own image or animated GIF</div>
+        </div>
+      </div>
+      <div class="wall-preview-box" id="setup-wall-preview"></div>
+      <input type="file" id="setup-wall-file" accept="image/*,image/gif" style="display:none">
+      <button class="btn-primary" id="btn-wall-next">Finish Setup</button>
+    </div>
+  </div>
+</div>
+
+<div id="tutorial" style="display:none">
+  <div id="tut-card">
+    <div class="t-icon" id="tut-icon"></div>
+    <h2 id="tut-title"></h2>
+    <p id="tut-text"></p>
+    <div id="tut-dots"></div>
+    <button class="btn-primary" id="tut-next">Next</button>
+    <button class="btn-skip" id="tut-skip">Skip tutorial</button>
+  </div>
+</div>
+
+<div id="tut-overlay">
+  <div class="tut-panel top"></div>
+  <div class="tut-panel bottom"></div>
+  <div class="tut-panel left"></div>
+  <div class="tut-panel right"></div>
+  <div id="tut-ring"></div>
+  <div id="tut-pointer"><svg viewBox="0 0 50 50" fill="none"><path d="M3 3 L22 22 L14 25 L18 38 L12 40 L8 27 L0 30 Z" fill="var(--accent)" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg></div>
+  <div id="tut-bubble">
+    <div class="tb-step" id="tb-step">Step 1 of 8</div>
+    <div class="tb-title" id="tb-title"></div>
+    <div class="tb-text" id="tb-text"></div>
+    <div class="tb-controls">
+      <div class="tb-dots" id="tb-dots"></div>
+      <button class="tb-skip" id="tb-skip">Skip</button>
+      <button class="tb-next" id="tb-next">Next</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const K_SETUP = 'comet-os-setup-v3';
+  const K_APPS  = 'comet-os-apps-v3';
+  const K_TUT   = 'comet-os-tut-v3';
+  const K_TAB   = 'comet-os-tab-v3';
+  const K_WALL  = 'comet-os-wall-v3';
+  const K_DOCK  = 'comet-os-dock-v3';
+  const K_PREFS = 'comet-os-prefs-v3';
+  const K_AUTHOR = 'comet-os-author-v3';
+  const K_PUB = 'comet-os-published-v3'; // apps this device has published to the cloud
+
+  /* ---------- Cross-device app store via ntfy.sh ----------
+   * Apps are stored on the creator's device (localStorage) AND posted
+   * to the public "comet-os-appstore" topic on ntfy.sh. Anyone, on any
+   * device, browsing the App Store fetches all messages from that topic
+   * and sees your app. No server, no codes, no signup.
+   */
+  const NTFY_TOPIC = 'comet-os-appstore';
+  const NTFY_BASE = 'https://ntfy.sh/' + NTFY_TOPIC;
+
+  async function publishAppToCloud(app) {
+    try {
+      const res = await fetch(NTFY_BASE, {
+        method: 'POST',
+        headers: {
+          'Title': 'app',
+          'Message-ID': app.id,
+          'TTL': '259200' // 3 days (max)
+        },
+        body: JSON.stringify(app)
+      });
+      return res.ok;
+    } catch (e) { console.warn('publishAppToCloud failed:', e); return false; }
+  }
+
+  async function fetchCloudApps() {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(NTFY_BASE + '/json?poll=1&since=all', {
+        signal: controller.signal,
+        headers: { 'Accept': 'application/json' }
+      });
+      clearTimeout(timeout);
+      if (!res.ok) return [];
+      const text = await res.text();
+      const lines = text.trim().split('\n').filter(Boolean);
+      const apps = [];
+      const seenIds = new Set();
+      // Parse newest-first (ntfy returns oldest first, so reverse)
+      for (const line of lines.reverse()) {
+        try {
+          const msg = JSON.parse(line);
+          if (msg.event !== 'message' || !msg.message) continue;
+          const inner = JSON.parse(msg.message);
+          if (inner.type !== 'comet-os-app' && inner.id) {
+            // It's an app object directly
+          }
+          if (!inner.id || seenIds.has(inner.id)) continue;
+          seenIds.add(inner.id);
+          apps.push(inner);
+        } catch (e) {}
+      }
+      return apps;
+    } catch (e) { console.warn('fetchCloudApps failed:', e); return []; }
+  }
+
+  function getPublishedApps() { return lsGet(K_PUB, []); }
+  function savePublishedApps(a) { lsSet(K_PUB, a); }
+
+  /* ---------- SVG Icons (no emojis) ---------- */
+  const SVG = {
+    logo: `<svg viewBox="0 0 24 24" fill="none"><circle cx="17" cy="17" r="4.5" fill="var(--accent)"/><path d="M3 3 L15 15" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/><path d="M6 3 L13 10" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/></svg>`,
+    browser: `<svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke="#fff"/><ellipse cx="12" cy="12" rx="4" ry="9" stroke="var(--accent)"/><path d="M3.5 9h17M3.5 15h17" stroke="var(--accent)"/></svg>`,
+    store: `<svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6L5 8z" stroke="#fff"/><path d="M9 8V6a3 3 0 0 1 6 0v2" stroke="var(--accent)"/><path d="M9 12l2 2 4-4" stroke="var(--accent)"/></svg>`,
+    settings: `<svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1" stroke="#fff"/><circle cx="12" cy="12" r="3.5" stroke="var(--accent)"/></svg>`,
+    studio: `<svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 5 5.6.5-4.2 3.7 1.3 5.5L12 14l-5.1 2.7 1.3-5.5L4 7.5 9.6 7z" stroke="var(--accent)"/></svg>`,
+    app: `<svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 9h6v6H9z"/></svg>`,
+    close: `<svg viewBox="0 0 12 12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 2l8 8M10 2l-8 8"/></svg>`,
+    minimize: `<svg viewBox="0 0 12 12" stroke="currentColor" stroke-width="1.4"><path d="M1 6h10"/></svg>`,
+    fullscreen: `<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 5V2h3M9 2h3v3M12 9v3H9M5 12H2V9"/></svg>`,
+    exitFs: `<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 2v3H2M9 2v3h3M12 9v3H9M5 12V9H2"/></svg>`,
+    search: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>`,
+    plus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>`,
+    trash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>`,
+    edit: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>`,
+    upload: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>`,
+    image: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>`,
+    tag: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1"/></svg>`,
+    star: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 6.5 7 .5-5.5 4.5 2 7L12 17l-6.5 3.5 2-7L2 9l7-.5z"/></svg>`,
+    starEmpty: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 6.5 7 .5-5.5 4.5 2 7L12 17l-6.5 3.5 2-7L2 9l7-.5z"/></svg>`,
+    chevron: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>`,
+    play: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`,
+    globe: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3.5 9h17M3.5 15h17"/></svg>`,
+    palette: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 22a10 10 0 1 1 0-20 10 10 0 0 1 10 10c0 1.5-1 2-2 2h-2a2 2 0 0 0-1.5 3.5c.5.5.5 1.5 0 2A2.5 2.5 0 0 1 12 22z"/></svg>`,
+    back: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>`,
+    forward: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>`,
+    reload: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg>`,
+    home: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>`,
+    lock: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+    bell: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
+    paintbrush: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.06 11.9l8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"/><path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z"/></svg>`,
+  };
+
+  const COLORS = [
+    '#0A84FF','#0055D4','#30D158','#1DB954','#FFD60A','#FF9F0A','#FF453A','#FF375F',
+    '#BF5AF2','#8E44EC','#5E5CE6','#6C5CE7','#00C7BE','#64D2FF','#4ECDC4','#2ECC9B',
+    '#FF6B81','#E84393','#FD79A8','#E17055','#FAB1A0','#DEA584','#C68642','#8D6E63',
+    '#95A5A6','#7F8C8D','#B2BEC3','#A29BFE','#74B9FF','#55EFC4'
+  ];
+
+  const STORE_TAGS = [
+    'Games','AI','Productivity','Social','Music','Video','Photo','Developer Tools',
+    'Education','News','Utilities','Communication','Finance','Health','Travel',
+    'Shopping','Food','Sports','Books','Design'
+  ];
+
+  const state = { accent: null, booted: false, dockVisible: false };
+  let zTop = 100;
+  const windows = {};
+
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => document.querySelectorAll(s);
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+  const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  function lsGet(key, fallback) {
+    try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
+  }
+  function lsSet(key, val) {
+    try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+  }
+  function getUserApps() { return lsGet(K_APPS, []); }
+  function saveUserApps(a) { lsSet(K_APPS, a); }
+  function getPrefs() {
+    return lsGet(K_PREFS, { sounds: true, animations: true, snapZones: true, reduceTransparency: false });
+  }
+  function setPrefs(p) { lsSet(K_PREFS, p); }
+
+  function hexToRgb(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function applyAccent(hex) {
+    const [r, g, b] = hexToRgb(hex);
+    document.documentElement.style.setProperty('--accent', hex);
+    document.documentElement.style.setProperty('--accent-glow', `rgba(${r},${g},${b},0.5)`);
+    state.accent = hex;
+  }
+  function applyTabCustom() {
+    const t = lsGet(K_TAB, {});
+    if (t.title) document.title = t.title;
+    if (t.icon) $('#favicon').href = t.icon;
+  }
+  function applyWallpaper(url) {
+    const el = $('#wallpaper-img');
+    if (url) {
+      el.style.backgroundImage = `url("${url}")`;
+      el.style.display = 'block';
+      document.body.classList.add('custom-wall');
+    } else {
+      el.style.backgroundImage = '';
+      el.style.display = 'none';
+      document.body.classList.remove('custom-wall');
+    }
+  }
+
+  /* ---------- Lazy CodeMirror loader (non-blocking) ----------
+   * CodeMirror is loaded on-demand the first time Studio opens.
+   * If the CDN is slow or blocked, Studio falls back to a plain
+   * textarea editor so the OS never hangs.
+   */
+  let cmLoadPromise = null;
+  let cmLoadFailed = false;
+  function loadCodeMirror() {
+    if (cmLoadPromise) return cmLoadPromise;
+    if (cmLoadFailed || typeof CodeMirror !== 'undefined') {
+      return Promise.resolve(typeof CodeMirror !== 'undefined');
+    }
+    cmLoadPromise = new Promise((resolve) => {
+      const base = 'https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/';
+      const files = [
+        'codemirror.min.css',
+        'theme/material-darker.min.css',
+        'codemirror.min.js',
+        'mode/xml/xml.min.js',
+        'mode/htmlmixed/htmlmixed.min.js',
+        'mode/css/css.min.js',
+        'mode/javascript/javascript.min.js',
+        'addon/edit/closetag.min.js',
+        'addon/edit/closebrackets.min.js',
+        'addon/edit/matchbrackets.min.js',
+      ];
+      let loaded = 0;
+      let failed = false;
+      function onLoad() {
+        if (failed) return;
+        loaded++;
+        if (loaded === files.length) {
+          resolve(true);
+        }
+      }
+      function onError() {
+        if (failed) return;
+        failed = true;
+        cmLoadFailed = true;
+        resolve(false);
+      }
+      files.forEach((f) => {
+        const url = base + f;
+        if (f.endsWith('.css')) {
+          const link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = url;
+          link.onload = onLoad;
+          link.onerror = onError;
+          document.head.appendChild(link);
+        } else {
+          const s = document.createElement('script');
+          s.src = url;
+          s.async = false; // preserve order
+          s.onload = onLoad;
+          s.onerror = onError;
+          document.head.appendChild(s);
+        }
+      });
+      // Timeout: if CDN doesn't respond in 8 seconds, give up and use fallback
+      setTimeout(() => { if (loaded < files.length) onError(); }, 8000);
+    });
+    return cmLoadPromise;
+  }
+
+  /* ---------- Sound effects ---------- */
+  let audioCtx = null;
+  function ensureAudio() {
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      try { audioCtx.resume(); } catch (e) {}
+    }
+    return audioCtx;
+  }
+  function playSound(type) {
+    if (!getPrefs().sounds) return;
+    try {
+      ensureAudio();
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination);
+      const freqs = { open: [440, 660], close: [660, 220], click: [880], error: [220, 110] };
+      const f = freqs[type] || [440];
+      o.frequency.setValueAtTime(f[0], audioCtx.currentTime);
+      if (f[1]) o.frequency.exponentialRampToValueAtTime(f[1], audioCtx.currentTime + 0.1);
+      g.gain.setValueAtTime(0.05, audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+      o.start();
+      o.stop(audioCtx.currentTime + 0.2);
+    } catch (e) {}
+  }
+  /* Ambient space "ding" — a warm bell tone with reverb-like decay */
+  function playSpaceDing() {
+    try {
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      // Fundamental bell frequencies (a suspended cymbal-like stack)
+      const freqs = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6 — a major chord
+      freqs.forEach((freq, i) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine';
+        o.frequency.value = freq;
+        // Slight detune for shimmer
+        o.detune.value = (i - 1.5) * 4;
+        o.connect(g); g.connect(ctx.destination);
+        // Each partial decays at its own rate — high partials faster
+        const peak = 0.06 / (i + 1);
+        const decay = 2.5 + i * 0.8;
+        g.gain.setValueAtTime(0, now);
+        g.gain.linearRampToValueAtTime(peak, now + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + decay);
+        o.start(now);
+        o.stop(now + decay + 0.1);
+      });
+      // Add a low drone for "space" feel
+      const drone = ctx.createOscillator();
+      const droneGain = ctx.createGain();
+      drone.type = 'sine';
+      drone.frequency.value = 130.81; // C3
+      drone.connect(droneGain); droneGain.connect(ctx.destination);
+      droneGain.gain.setValueAtTime(0, now);
+      droneGain.gain.linearRampToValueAtTime(0.025, now + 0.3);
+      droneGain.gain.linearRampToValueAtTime(0.02, now + 2.0);
+      droneGain.gain.exponentialRampToValueAtTime(0.0001, now + 4.0);
+      drone.start(now);
+      drone.stop(now + 4.1);
+      // Sparkle — a very high tone that fades in
+      const sparkle = ctx.createOscillator();
+      const sparkGain = ctx.createGain();
+      sparkle.type = 'triangle';
+      sparkle.frequency.value = 2093; // C7
+      sparkle.connect(sparkGain); sparkGain.connect(ctx.destination);
+      sparkGain.gain.setValueAtTime(0, now);
+      sparkGain.gain.linearRampToValueAtTime(0.015, now + 0.6);
+      sparkGain.gain.exponentialRampToValueAtTime(0.0001, now + 3.5);
+      sparkle.start(now);
+      sparkle.stop(now + 3.6);
+    } catch (e) { console.warn('spaceDing failed', e); }
+  }
+
+  /* ---------- Comets (multiple, every boot) ---------- */
+  function launchComets() {
+    // 5 comets with different trajectories, sizes, and delays
+    const comets = [
+      { cls: '',    anim: 'cometFly1 2.4s ease-out forwards', delay: 100 },
+      { cls: 'c2',  anim: 'cometFly2 2.0s ease-out forwards', delay: 600 },
+      { cls: 'c3',  anim: 'cometFly3 2.6s ease-out forwards', delay: 1200 },
+      { cls: 'c4',  anim: 'cometFly4 1.8s ease-out forwards', delay: 1800 },
+      { cls: 'c5',  anim: 'cometFly5 2.2s ease-out forwards', delay: 2400 },
+    ];
+    comets.forEach(c => {
+      setTimeout(() => {
+        const el = document.createElement('div');
+        el.className = 'comet ' + c.cls;
+        el.style.animation = c.anim;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 3000);
+      }, c.delay);
+    });
+  }
+
+  /* ---------- Toast ---------- */
+  function toast(title, text) {
+    const stack = $('#toast-stack');
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.innerHTML = `
+      <div class="t-icon">${SVG.bell}</div>
+      <div class="t-body">
+        <div class="t-title">${esc(title)}</div>
+        <div class="t-text">${esc(text)}</div>
+      </div>
+      <div class="t-close">×</div>`;
+    stack.appendChild(el);
+    el.querySelector('.t-close').addEventListener('click', () => closeToast(el));
+    const timer = setTimeout(() => closeToast(el), 4000);
+    el._timer = timer;
+  }
+  function closeToast(el) {
+    if (el._closed) return;
+    el._closed = true;
+    clearTimeout(el._timer);
+    el.classList.add('closing');
+    setTimeout(() => el.remove(), 300);
+  }
+
+  /* ---------- Clock ---------- */
+  function tickClock() {
+    const now = new Date();
+    $('#clock-time').textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    $('#clock-date').textContent = now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  /* ---------- Built-in apps ---------- */
+  const BUILTIN_APPS = {
+    browser:  { name: 'Browser',   type: 'iframe-file', file: 'browser.html', w: 920, h: 600, icon: 'browser' },
+    store:    { name: 'App Store', type: 'native', w: 880, h: 640, icon: 'store', render: renderStore },
+    settings: { name: 'Settings',  type: 'native', w: 720, h: 680, icon: 'settings', render: renderSettings },
+    studio:   { name: 'Studio',    type: 'native', w: 1040, h: 680, icon: 'studio', render: renderStudio },
+  };
+
+  function getAppDef(id) {
+    if (BUILTIN_APPS[id]) return Object.assign({ id }, BUILTIN_APPS[id]);
+    // Handle any user app ID (user-*, test-*, or any custom ID)
+    const app = getUserApps().find(a => a.id === id);
+    if (app) return {
+      id, name: app.title, type: 'user',
+      html: assembleUserAppHTML(app), icon: 'app',
+      w: app.width || 820, h: app.height || 580
+    };
+    return null;
+  }
+  function assembleUserAppHTML(app) {
+    const css = app.css || '';
+    const js = app.js || '';
+    let extra = '';
+    if (app.extraFiles) {
+      app.extraFiles.forEach(f => {
+        if (f.type === 'css') extra += `<style>\n${f.content}\n</style>\n`;
+        else if (f.type === 'js') extra += `<script>\n${f.content}\n<\/script>\n`;
+      });
+    }
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+      html,body{margin:0;padding:0;font-family:Inter,sans-serif;background:#1a1a28;color:#fff;min-height:100vh;overflow:auto;}
+      *{box-sizing:border-box;}
+    </style><style>${css}</style></head><body>${app.html || ''}${extra}<script>${js}<\/script></body></html>`;
+  }
+
+  function allAppsList() {
+    const list = [
+      { id: 'browser',  name: 'Browser',   sub: 'Browse the web', icon: 'browser' },
+      { id: 'store',    name: 'App Store', sub: 'Discover apps', icon: 'store' },
+      { id: 'studio',   name: 'Studio',    sub: 'Build & publish apps', icon: 'studio' },
+      { id: 'settings', name: 'Settings',  sub: 'Customize Comet-OS', icon: 'settings' },
+    ];
+    getUserApps().forEach(a => list.push({ id: a.id, name: a.title, sub: 'by ' + a.author + (a.tags && a.tags[0] ? ' · ' + a.tags[0] : ''), icon: 'app' }));
+    return list;
+  }
+
+  /* ---------- Dock ---------- */
+  function getDockApps() { return lsGet(K_DOCK, ['browser', 'store', 'settings']); }
+  function setDockApps(arr) { lsSet(K_DOCK, arr); }
+  function buildDock() {
+    const dock = $('#dock');
+    dock.innerHTML = '';
+    getDockApps().forEach(id => {
+      const def = BUILTIN_APPS[id] || getAppDef(id);
+      if (!def) return;
+      const el = document.createElement('div');
+      el.className = 'dock-item';
+      el.dataset.app = id;
+      el.innerHTML = (SVG[def.icon] || SVG.app) + `<span class="tooltip">${esc(def.name)}</span><span class="dot"></span>`;
+      dock.appendChild(el);
+    });
+    dock.querySelectorAll('.dock-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const id = item.dataset.app;
+        if (windows[id] && !windows[id].classList.contains('minimized')) {
+          minimizeApp(id);
+        } else {
+          openApp(id);
+        }
+      });
+    });
+  }
+
+  // Dock auto-hide
+  const dockTrigger = $('#dock-trigger');
+  const dockWrap = $('#dock-wrap');
+  let dockHideTimer = null;
+  function showDock() {
+    clearTimeout(dockHideTimer);
+    dockWrap.classList.add('visible');
+    state.dockVisible = true;
+  }
+  function scheduleHideDock() {
+    clearTimeout(dockHideTimer);
+    dockHideTimer = setTimeout(() => {
+      dockWrap.classList.remove('visible');
+      state.dockVisible = false;
+    }, 350);
+  }
+  dockTrigger.addEventListener('mouseenter', showDock);
+  dockWrap.addEventListener('mouseenter', showDock);
+  dockTrigger.addEventListener('mouseleave', scheduleHideDock);
+  dockWrap.addEventListener('mouseleave', scheduleHideDock);
+  // Backup: show dock when cursor is in the bottom 20px of the screen
+  document.addEventListener('mousemove', (e) => {
+    if (e.clientY > window.innerHeight - 20) showDock();
+  });
+
+  /* ---------- Start menu ---------- */
+  function buildStartMenu(filter) {
+    const menu = $('#start-menu');
+    menu.innerHTML = '<h3>Search</h3><input id="start-search" placeholder="Search apps..." autocomplete="off">';
+    const search = menu.querySelector('#start-search');
+    search.addEventListener('input', () => renderStartResults(search.value));
+    search.addEventListener('click', e => e.stopPropagation());
+    if (filter) search.value = filter;
+    const results = document.createElement('div');
+    results.id = 'start-results';
+    menu.appendChild(results);
+    renderStartResults(filter);
+    if (filter) search.focus();
+  }
+  function renderStartResults(filter) {
+    const results = $('#start-results');
+    if (!results) return;
+    const q = (filter || '').trim().toLowerCase();
+    const apps = allAppsList().filter(a =>
+      !q || a.name.toLowerCase().includes(q) || a.sub.toLowerCase().includes(q)
+    );
+    results.innerHTML = '';
+    if (!apps.length) {
+      results.innerHTML = `<div class="start-empty">No apps match "${esc(filter)}".</div>`;
+      return;
+    }
+    // Split into built-in and user apps
+    const builtIn = apps.filter(a => BUILTIN_APPS[a.id]);
+    const userApps = apps.filter(a => !BUILTIN_APPS[a.id]);
+    if (builtIn.length) {
+      const h = document.createElement('h3'); h.textContent = 'Apps'; results.appendChild(h);
+      builtIn.forEach(a => results.appendChild(makeStartItem(a)));
+    }
+    if (userApps.length) {
+      const h = document.createElement('h3'); h.textContent = 'Your Apps'; results.appendChild(h);
+      userApps.forEach(a => results.appendChild(makeStartItem(a)));
+    }
+  }
+  function makeStartItem(a) {
+    const item = document.createElement('div');
+    item.className = 'start-item';
+    item.innerHTML = `<div class="si-icon">${SVG[a.icon] || SVG.app}</div>
+      <div><div class="si-name">${esc(a.name)}</div><div class="si-sub">${esc(a.sub)}</div></div>`;
+    item.addEventListener('click', () => {
+      closeStartMenu();
+      if (windows[a.id] && !windows[a.id].classList.contains('minimized')) { minimizeApp(a.id); return; }
+      openApp(a.id);
+    });
+    return item;
+  }
+  function openStartMenu() { buildStartMenu(); $('#start-menu').classList.add('open'); $('#start-btn').classList.add('open'); }
+  function closeStartMenu() { $('#start-menu').classList.remove('open'); $('#start-btn').classList.remove('open'); }
+  $('#start-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    $('#start-menu').classList.contains('open') ? closeStartMenu() : openStartMenu();
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#start-menu') && !e.target.closest('#start-btn')) closeStartMenu();
+  });
+
+  /* ---------- Context menu ---------- */
+  let ctxOpen = null;
+  function showCtxMenu(x, y, items) {
+    if (ctxOpen) { ctxOpen.remove(); ctxOpen = null; }
+    const menu = document.createElement('div');
+    menu.className = 'ctx-menu';
+    items.forEach(it => {
+      if (it.sep) { const s = document.createElement('div'); s.className = 'ctx-sep'; menu.appendChild(s); return; }
+      const el = document.createElement('div');
+      el.className = 'ctx-item';
+      el.innerHTML = `<span>${it.icon || ''}</span><span>${esc(it.label)}</span>`;
+      el.addEventListener('click', () => { it.action && it.action(); menu.remove(); ctxOpen = null; });
+      menu.appendChild(el);
+    });
+    document.body.appendChild(menu);
+    menu.style.left = Math.min(x, window.innerWidth - 220) + 'px';
+    menu.style.top = Math.min(y, window.innerHeight - menu.offsetHeight - 10) + 'px';
+    requestAnimationFrame(() => menu.classList.add('open'));
+    ctxOpen = menu;
+    setTimeout(() => {
+      const close = (e) => {
+        if (!e.target.closest('.ctx-menu')) { menu.remove(); ctxOpen = null; document.removeEventListener('click', close); }
+      };
+      document.addEventListener('click', close);
+    }, 0);
+  }
+
+  // Desktop double-click → wallpaper/settings menu
+  document.addEventListener('dblclick', (e) => {
+    if (e.target.id === 'wallpaper' || e.target.id === 'wallpaper-img' || e.target.classList.contains('blob') || e.target === document.body) {
+      showCtxMenu(e.clientX, e.clientY, [
+        { label: 'Change Wallpaper', icon: SVG.image, action: () => openApp('settings') },
+        { label: 'Open Settings', icon: SVG.settings, action: () => openApp('settings') },
+        { sep: true },
+        { label: 'Open App Store', icon: SVG.store, action: () => openApp('store') },
+        { label: 'Open Studio', icon: SVG.studio, action: () => openApp('studio') },
+      ]);
+    }
+  });
+
+  /* ---------- Window manager ---------- */
+  function bringToFront(win) {
+    zTop += 1;
+    win.style.zIndex = zTop;
+    $$('.app-window.focused').forEach(w => w.classList.remove('focused'));
+    win.classList.add('focused');
+    syncDockDots();
+  }
+  function syncDockDots() {
+    $$('.dock-item').forEach(item => {
+      const w = windows[item.dataset.app];
+      item.classList.toggle('running', !!w && !w.classList.contains('minimized'));
+    });
+  }
+  function makeDraggable(win, handle) {
+    let sx, sy, ox, oy, dragging = false;
+    handle.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.win-btn')) return;
+      if (e.target.closest('.fs-controls')) return;
+      if (win.classList.contains('fullscreen')) return;
+      dragging = true;
+      sx = e.clientX; sy = e.clientY;
+      const r = win.getBoundingClientRect();
+      ox = r.left; oy = r.top;
+      win.style.left = ox + 'px'; win.style.top = oy + 'px';
+      bringToFront(win);
+      e.preventDefault();
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      win.style.left = clamp(ox + e.clientX - sx, -win.offsetWidth + 120, window.innerWidth - 120) + 'px';
+      win.style.top  = clamp(oy + e.clientY - sy, 0, window.innerHeight - 50) + 'px';
+    });
+    window.addEventListener('mouseup', () => { dragging = false; });
+  }
+  function makeResizable(win) {
+    ['n','s','e','w','ne','nw','se','sw'].forEach(dir => {
+      const h = document.createElement('div');
+      h.className = 'rz ' + dir;
+      win.appendChild(h);
+      let active = false, sx, sy, r;
+      h.addEventListener('mousedown', (e) => {
+        if (win.classList.contains('fullscreen')) return;
+        active = true; e.stopPropagation(); e.preventDefault();
+        sx = e.clientX; sy = e.clientY;
+        r = win.getBoundingClientRect();
+        win.style.left = r.left + 'px'; win.style.top = r.top + 'px';
+        bringToFront(win);
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (!active) return;
+        const dx = e.clientX - sx, dy = e.clientY - sy;
+        const minW = 360, minH = 240;
+        if (dir.includes('e')) win.style.width  = Math.max(minW, r.width + dx) + 'px';
+        if (dir.includes('s')) win.style.height = Math.max(minH, r.height + dy) + 'px';
+        if (dir.includes('w')) {
+          const w = Math.max(minW, r.width - dx);
+          win.style.width = w + 'px';
+          win.style.left = (r.left + (r.width - w)) + 'px';
+        }
+        if (dir.includes('n')) {
+          const hh = Math.max(minH, r.height - dy);
+          win.style.height = hh + 'px';
+          win.style.top = (r.top + (r.height - hh)) + 'px';
+        }
+      });
+      window.addEventListener('mouseup', () => { active = false; });
+    });
+  }
+
+  function openApp(appId) {
+    if (!state.booted) return;
+    const def = getAppDef(appId);
+    if (!def) return;
+    if (windows[appId]) {
+      const win = windows[appId];
+      win.classList.remove('minimized');
+      win.style.display = 'flex';
+      bringToFront(win);
+      return;
+    }
+    const win = document.createElement('div');
+    win.className = 'app-window';
+    win.dataset.app = appId;
+    const W = Math.min(def.w || 800, window.innerWidth - 40);
+    const H = Math.min(def.h || 560, window.innerHeight - 80);
+    const offset = Object.keys(windows).length * 28;
+    win.style.width = W + 'px';
+    win.style.height = H + 'px';
+    win.style.left = clamp((window.innerWidth - W) / 2 + offset, 10, Math.max(10, window.innerWidth - W - 10)) + 'px';
+    win.style.top  = clamp((window.innerHeight - H) / 2 - 10 + offset, 44, Math.max(44, window.innerHeight - H - 20)) + 'px';
+
+    win.innerHTML = `
+      <div class="win-titlebar">
+        <div class="win-title"><span class="wt-icon">${SVG[def.icon] || SVG.app}</span><span>${esc(def.name)}</span></div>
+        <div class="win-controls">
+          <button class="win-btn min" title="Minimize">${SVG.minimize}</button>
+          <button class="win-btn fs" title="Fullscreen">${SVG.fullscreen}</button>
+          <button class="win-btn close" title="Close">${SVG.close}</button>
+        </div>
+      </div>
+      <div class="win-body"></div>
+      <div class="fs-controls">
+        <button class="exit-fs" title="Exit fullscreen">${SVG.exitFs}</button>
+        <button class="close" title="Close">${SVG.close}</button>
+      </div>`;
+
+    const body = win.querySelector('.win-body');
+    if (def.type === 'iframe-file') {
+      body.innerHTML = `<iframe src="${def.file}" title="${esc(def.name)}"></iframe>`;
+    } else if (def.type === 'user') {
+      const iframe = document.createElement('iframe');
+      iframe.setAttribute('title', def.name);
+      iframe.setAttribute('sandbox', 'allow-scripts allow-forms allow-modals allow-popups allow-same-origin');
+      body.appendChild(iframe);
+      iframe.srcdoc = def.html;
+      incrementDownloads(appId);
+    } else if (def.type === 'native') {
+      body.classList.add('native');
+      def.render(body, win);
+    }
+
+    $('#window-layer').appendChild(win);
+    windows[appId] = win;
+
+    makeDraggable(win, win.querySelector('.win-titlebar'));
+    makeResizable(win);
+    win.querySelector('.win-btn.close').addEventListener('click', () => closeApp(appId));
+    win.querySelector('.win-btn.min').addEventListener('click', () => minimizeApp(appId));
+    win.querySelector('.win-btn.fs').addEventListener('click', () => toggleFullscreen(appId));
+    win.querySelector('.fs-controls .exit-fs').addEventListener('click', () => toggleFullscreen(appId));
+    win.querySelector('.fs-controls .close').addEventListener('click', () => closeApp(appId));
+    win.addEventListener('mousedown', () => bringToFront(win));
+    bringToFront(win);
+    playSound('open');
+
+    // Double-click titlebar = toggle fullscreen
+    win.querySelector('.win-titlebar').addEventListener('dblclick', (e) => {
+      if (e.target.closest('.win-btn')) return;
+      toggleFullscreen(appId);
+    });
+  }
+
+  function toggleFullscreen(appId) {
+    const win = windows[appId];
+    if (!win) return;
+    if (win.classList.contains('fullscreen')) {
+      win.classList.remove('fullscreen');
+      document.body.classList.remove('fs-active');
+      if (win._fsRestore) {
+        win.style.left = win._fsRestore.left;
+        win.style.top = win._fsRestore.top;
+        win.style.width = win._fsRestore.width;
+        win.style.height = win._fsRestore.height;
+      }
+      win.querySelector('.win-btn.fs').innerHTML = SVG.fullscreen;
+    } else {
+      win._fsRestore = { left: win.style.left, top: win.style.top, width: win.style.width, height: win.style.height };
+      win.classList.add('fullscreen');
+      document.body.classList.add('fs-active');
+      win.querySelector('.win-btn.fs').innerHTML = SVG.exitFs;
+    }
+    bringToFront(win);
+  }
+
+  function closeApp(appId) {
+    const win = windows[appId];
+    if (!win) return;
+    win.classList.add('closing');
+    if (win.classList.contains('fullscreen')) document.body.classList.remove('fs-active');
+    playSound('close');
+    setTimeout(() => { win.remove(); delete windows[appId]; syncDockDots(); }, 260);
+  }
+  function minimizeApp(appId) {
+    const win = windows[appId];
+    if (!win) return;
+    win.classList.add('minimized');
+    win.style.display = 'none';
+    syncDockDots();
+  }
+
+  // Esc to exit fullscreen
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const fsWin = document.querySelector('.app-window.fullscreen');
+      if (fsWin) toggleFullscreen(fsWin.dataset.app);
+    }
+  });
+
+  /* ============================================================
+   * APP STORE
+   * ============================================================ */
+  function avgRating(app) {
+    if (!app.ratings || !app.ratings.length) return 0;
+    return app.ratings.reduce((a, b) => a + b, 0) / app.ratings.length;
+  }
+  function starRowHTML(avg) {
+    let html = '';
+    for (let i = 1; i <= 5; i++) {
+      html += i <= Math.round(avg) ? `<span style="color:var(--accent)">${SVG.star}</span>` : `<span style="opacity:0.3">${SVG.starEmpty}</span>`;
+    }
+    return html;
+  }
+  function starPickerHTML() {
+    return [1,2,3,4,5].map(n => `<span data-n="${n}">${SVG.starEmpty}</span>`).join('');
+  }
+  function incrementDownloads(id) {
+    const apps = getUserApps();
+    const a = apps.find(x => x.id === id);
+    if (a) { a.downloads = (a.downloads || 0) + 1; saveUserApps(apps); }
+  }
+
+  function renderStore(body, win) {
+    let activeTag = null;
+    let view = 'browse'; // 'browse' | 'cloud' | 'detail'
+    let cloudApps = [];
+    let cloudLoading = false;
+    body.innerHTML = `
+      <div class="nat">
+        <h1>App Store</h1>
+        <div class="sub">Apps built with Studio. Browse your local apps or discover apps from other devices.</div>
+        <div class="btn-row" style="margin-bottom:14px">
+          <input class="searchbar" style="flex:1;margin:0" id="store-search" placeholder="Search apps, authors, descriptions...">
+          <button class="btn ghost" id="store-tab-local">${SVG.app} My Apps</button>
+          <button class="btn ghost" id="store-tab-cloud">${SVG.globe} Cloud</button>
+          <button class="btn success" id="store-open-studio">${SVG.plus} Open Studio</button>
+        </div>
+        <div class="tag-grid" id="store-tags" style="display:none"></div>
+        <div id="store-content"></div>
+      </div>`;
+    const content = body.querySelector('#store-content');
+    const localTab = body.querySelector('#store-tab-local');
+    const cloudTab = body.querySelector('#store-tab-cloud');
+    const tagsRow = body.querySelector('#store-tags');
+
+    function setTab(tab) {
+      if (tab === 'cloud') {
+        cloudTab.classList.remove('ghost'); cloudTab.style.background = 'var(--accent)';
+        localTab.classList.add('ghost'); localTab.style.background = '';
+        tagsRow.style.display = 'none';
+        renderCloud();
+      } else {
+        localTab.classList.remove('ghost'); localTab.style.background = 'var(--accent)';
+        cloudTab.classList.add('ghost'); cloudTab.style.background = '';
+        tagsRow.style.display = 'flex';
+        renderBrowse();
+      }
+    }
+    localTab.addEventListener('click', () => setTab('local'));
+    cloudTab.addEventListener('click', () => setTab('cloud'));
+
+    function renderTags() {
+      const tg = body.querySelector('#store-tags');
+      tg.innerHTML = `<div class="tag-chip${activeTag === null ? ' active' : ''}" data-tag="">All</div>` +
+        STORE_TAGS.map(t => `<div class="tag-chip${activeTag === t ? ' active' : ''}" data-tag="${t}">${t}</div>`).join('');
+      tg.querySelectorAll('.tag-chip').forEach(c => c.addEventListener('click', () => {
+        activeTag = c.dataset.tag || null;
+        renderTags();
+        if (view === 'browse') renderBrowse();
+      }));
+    }
+
+    function appCardHTML(a, isCloud) {
+      const avg = avgRating(a);
+      const tags = (a.tags || []).slice(0, 3).map(t => `<span class="a-tag">${esc(t)}</span>`).join('');
+      const coverStyle = a.cover ? `background-image:url('${a.cover.replace(/'/g, "\\'")}')` : '';
+      const coverContent = a.cover ? '' : esc(a.title.charAt(0).toUpperCase());
+      const cloudBadge = isCloud ? ` <span style="font-size:10px;color:var(--accent);font-weight:600">CLOUD</span>` : '';
+      const openLabel = isCloud ? `${SVG.globe} Install` : `${SVG.play} Open`;
+      return `
+      <div class="app-card" data-id="${a.id}" data-cloud="${isCloud?'1':'0'}">
+        <div class="row1">
+          <div class="app-cover" style="${coverStyle}">${coverContent}</div>
+          <div>
+            <div class="a-title">${esc(a.title)} ${cloudBadge}</div>
+            <div class="a-author">by ${esc(a.author)}</div>
+            <div class="a-tags">${tags}</div>
+          </div>
+          <div class="a-meta">
+            <div class="star-row" style="display:flex;gap:1px">${starRowHTML(avg)} <span style="margin-left:4px">${avg.toFixed(1)}</span></div>
+            <div>${a.downloads || 0} opens · ${(a.ratings||[]).length} rating${(a.ratings||[]).length===1?'':'s'}</div>
+          </div>
+        </div>
+        <div class="a-desc">${esc(a.desc)}</div>
+        <div class="btn-row">
+          <button class="btn act-open">${openLabel}</button>
+          <div class="rate-stars" title="Rate this app">
+            ${starPickerHTML()}
+          </div>
+          <button class="btn ghost act-details" style="margin-left:auto">Details</button>
+          ${!isCloud ? `<button class="btn ghost act-del" title="Delete">${SVG.trash}</button>` : ''}
+        </div>
+      </div>`;
+    }
+
+    function renderBrowse() {
+      view = 'browse';
+      const q = body.querySelector('#store-search').value.trim().toLowerCase();
+      const apps = getUserApps()
+        .filter(a => !activeTag || (a.tags || []).includes(activeTag))
+        .filter(a => !q || a.title.toLowerCase().includes(q) || a.author.toLowerCase().includes(q) || a.desc.toLowerCase().includes(q))
+        .sort((a, b) => (b.downloads || 0) - (a.downloads || 0));
+      const sortedByRating = [...apps].sort((a, b) => avgRating(b) - avgRating(a));
+      const recommended = sortedByRating.filter(a => avgRating(a) > 0).slice(0, 3);
+      const trending = [...apps].sort((a, b) => (b.downloads || 0) - (a.downloads || 0)).slice(0, 3);
+      let html = '';
+      if (!q && !activeTag) {
+        html += `<div class="store-banner">
+          <div class="sb-icon">${SVG.store}</div>
+          <div class="sb-text">
+            <h2>Welcome to the App Store</h2>
+            <p>Apps you build in Studio appear here. Use the search and tags to find them.</p>
+          </div>
+        </div>`;
+        if (!getUserApps().length) {
+          html += `<div class="start-empty" style="text-align:center;padding:30px">No apps yet. Open Studio to build your first app!</div>`;
+        } else {
+          if (recommended.length) {
+            html += `<div class="store-section-title">${SVG.star} Top Rated</div><div class="featured-row">`;
+            recommended.forEach(a => {
+              const coverStyle = a.cover ? `background-image:url('${a.cover.replace(/'/g, "\\'")}')` : '';
+              html += `<div class="featured-card" data-id="${a.id}">
+                <div class="fc-cover" style="${coverStyle}">${a.cover ? '' : esc(a.title.charAt(0).toUpperCase())}</div>
+                <div class="fc-title">${esc(a.title)}</div>
+                <div class="fc-author" style="display:flex;align-items:center;gap:3px"><span style="width:12px;height:12px;display:flex">${SVG.star}</span> ${avgRating(a).toFixed(1)}</div>
+              </div>`;
+            });
+            html += `</div>`;
+          }
+          if (trending.length) {
+            html += `<div class="store-section-title">${SVG.play} Most Opened</div><div class="featured-row">`;
+            trending.forEach(a => {
+              const coverStyle = a.cover ? `background-image:url('${a.cover.replace(/'/g, "\\'")}')` : '';
+              html += `<div class="featured-card" data-id="${a.id}">
+                <div class="fc-cover" style="${coverStyle}">${a.cover ? '' : esc(a.title.charAt(0).toUpperCase())}</div>
+                <div class="fc-title">${esc(a.title)}</div>
+                <div class="fc-author">${a.downloads || 0} opens</div>
+              </div>`;
+            });
+            html += `</div>`;
+          }
+          html += `<div class="store-section-title">All Apps</div>`;
+        }
+      } else if (!apps.length) {
+        html = `<div class="start-empty" style="text-align:center;padding:30px">No apps found.${q ? ' Try a different search.' : ''}</div>`;
+      }
+      html += apps.map(a => appCardHTML(a)).join('');
+      content.innerHTML = html;
+      bindCards();
+    }
+
+    function bindCards() {
+      content.querySelectorAll('.app-card').forEach(card => {
+        const id = card.dataset.id;
+        const isCloud = card.dataset.cloud === '1';
+        card.querySelector('.act-open').addEventListener('click', () => {
+          if (isCloud) {
+            // Install: find in cloudApps, save locally, then open
+            const cloudApp = cloudApps.find(a => a.id === id);
+            if (!cloudApp) return toast('Not found', 'App data missing.');
+            const local = getUserApps();
+            if (local.find(a => a.id === cloudApp.id)) {
+              openApp(cloudApp.id);
+            } else {
+              local.push(Object.assign({}, cloudApp, { downloads: 0, ratings: [], reviews: [] }));
+              saveUserApps(local);
+              toast('Installed!', cloudApp.title + ' is ready to open.');
+              openApp(cloudApp.id);
+            }
+          } else {
+            openApp(id);
+          }
+        });
+        card.querySelectorAll('.rate-stars span').forEach(st => {
+          st.addEventListener('click', () => {
+            const apps = getUserApps();
+            const a = apps.find(x => x.id === id);
+            if (a) {
+              a.ratings = a.ratings || [];
+              a.ratings.push(Number(st.dataset.n));
+              saveUserApps(apps);
+              renderBrowse();
+              toast('Rated', 'Thanks for rating ' + a.title + '!');
+            }
+          });
+        });
+        card.querySelector('.act-details').addEventListener('click', () => {
+          if (isCloud) {
+            // Install then show details
+            const cloudApp = cloudApps.find(a => a.id === id);
+            if (!cloudApp) return;
+            const local = getUserApps();
+            if (!local.find(a => a.id === cloudApp.id)) {
+              local.push(Object.assign({}, cloudApp, { downloads: 0, ratings: [], reviews: [] }));
+              saveUserApps(local);
+            }
+            renderDetail(id);
+          } else {
+            renderDetail(id);
+          }
+        });
+        const delBtn = card.querySelector('.act-del');
+        if (delBtn) delBtn.addEventListener('click', () => {
+          const a = getUserApps().find(x => x.id === id);
+          if (confirm('Delete "' + (a ? a.title : id) + '"?')) {
+            saveUserApps(getUserApps().filter(x => x.id !== id));
+            if (windows[id]) closeApp(id);
+            renderBrowse();
+          }
+        });
+      });
+      // Featured cards
+      content.querySelectorAll('.featured-card').forEach(fc => {
+        fc.addEventListener('click', () => renderDetail(fc.dataset.id));
+      });
+    }
+
+    async function renderCloud() {
+      view = 'cloud';
+      content.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text-dim)">
+        <div style="width:40px;height:40px;margin:0 auto 14px;animation:spin 1s linear infinite;border:3px solid rgba(255,255,255,0.15);border-top-color:var(--accent);border-radius:50%"></div>
+        <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+        Fetching apps from the cloud...
+      </div>`;
+      cloudApps = await fetchCloudApps();
+      // Filter out apps this device already has locally (to avoid duplicates)
+      const localIds = new Set(getUserApps().map(a => a.id));
+      const freshCloudApps = cloudApps.filter(a => !localIds.has(a.id));
+      if (!freshCloudApps.length) {
+        content.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-dim)">
+          <div style="font-size:14px;font-weight:600;margin-bottom:6px">No new cloud apps found</div>
+          <div style="font-size:12.5px">Apps published by you and other COMET-OS users will appear here. ${cloudApps.length ? '(' + cloudApps.length + ' apps already installed locally)' : 'Be the first to publish from Studio!'}</div>
+        </div>`;
+        return;
+      }
+      // Sort newest first
+      freshCloudApps.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      let html = `<div class="store-banner">
+        <div class="sb-icon">${SVG.globe}</div>
+        <div class="sb-text">
+          <h2>Cloud Apps</h2>
+          <p>${freshCloudApps.length} app${freshCloudApps.length===1?'':'s'} from the COMET-OS community. Click Install to add any app to your device.</p>
+        </div>
+      </div>`;
+      html += freshCloudApps.map(a => appCardHTML(a, true)).join('');
+      content.innerHTML = html;
+      bindCards();
+    }
+
+    function renderDetail(id) {
+      view = 'detail';
+      const a = getUserApps().find(x => x.id === id);
+      if (!a) { renderBrowse(); return; }
+      const avg = avgRating(a);
+      const tags = (a.tags || []).map(t => `<span class="a-tag">${esc(t)}</span>`).join('');
+      const reviews = a.reviews || [];
+      const coverStyle = a.cover ? `background-image:url('${a.cover.replace(/'/g, "\\'")}')` : '';
+      const coverContent = a.cover ? '' : esc(a.title.charAt(0).toUpperCase());
+      content.innerHTML = `
+        <div style="margin-bottom:14px">
+          <button class="btn ghost" id="det-back">${SVG.back} Back</button>
+        </div>
+        <div class="app-card">
+          <div class="row1">
+            <div class="app-cover" style="width:72px;height:72px;font-size:30px;${coverStyle}">${coverContent}</div>
+            <div>
+              <div class="a-title" style="font-size:18px">${esc(a.title)}</div>
+              <div class="a-author">by ${esc(a.author)}</div>
+              <div class="a-tags" style="margin-top:6px">${tags}</div>
+            </div>
+            <div class="a-meta">
+              <div class="star-row" style="display:flex;gap:1px;font-size:14px">${starRowHTML(avg)} <span style="margin-left:4px">${avg.toFixed(1)}</span></div>
+              <div>${a.downloads || 0} opens · ${(a.ratings||[]).length} rating${(a.ratings||[]).length===1?'':'s'}</div>
+            </div>
+          </div>
+          <div class="a-desc" style="font-size:14px;margin-top:14px">${esc(a.desc)}</div>
+          <div class="btn-row" style="margin-top:14px">
+            <button class="btn" id="det-open">${SVG.play} Open</button>
+            <button class="btn danger" id="det-del">${SVG.trash} Delete</button>
+            <span style="flex:1"></span>
+            <div class="rate-stars" title="Rate this app">
+              ${starPickerHTML()}
+            </div>
+          </div>
+        </div>
+        <div class="form-card" style="margin-top:14px">
+          <h3 style="margin-bottom:8px">Write a review</h3>
+          <input class="inp" id="rev-name" placeholder="Your name" style="margin-bottom:8px">
+          <div class="rate-stars" id="rev-stars" style="margin-bottom:8px">
+            ${starPickerHTML()}
+          </div>
+          <textarea class="inp" id="rev-text" placeholder="Share your thoughts..." style="min-height:60px"></textarea>
+          <div class="btn-row" style="margin-top:8px">
+            <button class="btn" id="rev-submit">Submit Review</button>
+          </div>
+        </div>
+        <div>
+          <h3 style="margin:14px 0 8px">Reviews (${reviews.length})</h3>
+          ${reviews.length ? reviews.map(r => `
+            <div class="review-card">
+              <div class="rv-head">
+                <div class="rv-author">${esc(r.name)}</div>
+                <div class="rv-stars" style="display:flex;gap:1px">${starRowHTML(r.stars)}</div>
+                <div style="margin-left:auto;font-size:11px;color:var(--text-dim)">${new Date(r.date).toLocaleDateString()}</div>
+              </div>
+              <div class="rv-text">${esc(r.text)}</div>
+            </div>
+          `).join('') : '<div style="color:var(--text-dim);font-size:12px">No reviews yet. Be the first!</div>'}
+        </div>
+      `;
+      content.querySelector('#det-back').addEventListener('click', renderBrowse);
+      content.querySelector('#det-open').addEventListener('click', () => openApp(id));
+      content.querySelector('#det-del').addEventListener('click', () => {
+        if (confirm('Delete this app?')) {
+          saveUserApps(getUserApps().filter(x => x.id !== id));
+          if (windows[id]) closeApp(id);
+          renderBrowse();
+        }
+      });
+      let reviewStars = 0;
+      content.querySelectorAll('#rev-stars span').forEach(s => {
+        s.addEventListener('click', () => {
+          reviewStars = parseInt(s.dataset.n);
+          content.querySelectorAll('#rev-stars span').forEach((x, i) => {
+            x.classList.toggle('lit', i < reviewStars);
+            x.innerHTML = i < reviewStars ? SVG.star : SVG.starEmpty;
+          });
+        });
+      });
+      content.querySelectorAll('.rate-stars span').forEach(s => {
+        s.addEventListener('click', () => {
+          const apps = getUserApps();
+          const ax = apps.find(x => x.id === id);
+          if (ax) { ax.ratings = ax.ratings || []; ax.ratings.push(Number(s.dataset.n)); saveUserApps(apps); renderDetail(id); }
+        });
+      });
+      content.querySelector('#rev-submit').addEventListener('click', () => {
+        const name = content.querySelector('#rev-name').value.trim() || 'Anonymous';
+        const text = content.querySelector('#rev-text').value.trim();
+        if (!text) return alert('Please write a review.');
+        const apps = getUserApps();
+        const ax = apps.find(x => x.id === id);
+        if (ax) {
+          ax.reviews = ax.reviews || [];
+          ax.reviews.push({ name, text, stars: reviewStars || 5, date: Date.now() });
+          saveUserApps(apps);
+          renderDetail(id);
+          toast('Review posted', 'Thanks for your feedback!');
+        }
+      });
+    }
+
+    body.querySelector('#store-search').addEventListener('input', () => { if (view === 'browse') renderBrowse(); });
+    body.querySelector('#store-open-studio').addEventListener('click', () => openApp('studio'));
+    renderTags();
+    setTab('local');
+  }
+
+  /* ============================================================
+   * STUDIO — multi-file editor with live preview + console
+   * ============================================================ */
+  function getAuthor() {
+    let n = localStorage.getItem(K_AUTHOR);
+    if (!n) {
+      n = prompt('Welcome to Studio! What name should appear as the author of your apps?', 'Anonymous') || 'Anonymous';
+      localStorage.setItem(K_AUTHOR, n);
+    }
+    return n;
+  }
+
+  function renderStudio(body, win) {
+    body.style.padding = '0';
+    const project = {
+      tabs: [
+        { name: 'index.html', type: 'html', content: '<div id="app">\n  <h1>Hello, World!</h1>\n  <p>Welcome to my COMET-OS app.</p>\n  <button id="btn">Click me</button>\n</div>' },
+        { name: 'style.css', type: 'css', content: 'body {\n  padding: 24px;\n  font-family: Inter, sans-serif;\n}\nh1 {\n  color: #0A84FF;\n}\nbutton {\n  background: #0A84FF;\n  color: #fff;\n  border: none;\n  padding: 10px 18px;\n  border-radius: 8px;\n  cursor: pointer;\n  font-size: 14px;\n}' },
+        { name: 'script.js', type: 'js', content: 'console.log("App started!");\n\ndocument.getElementById("btn").addEventListener("click", () => {\n  console.log("Button clicked!");\n  alert("Hello from your COMET-OS app!");\n});' },
+      ],
+      activeTab: 0,
+    };
+
+    body.innerHTML = `
+      <div class="studio-app">
+        <div class="studio-tabs" id="st-tabs"></div>
+        <div class="studio-body">
+          <div class="studio-editor-wrap">
+            <div id="st-editor"></div>
+            <div class="studio-console">
+              <div class="sc-header">
+                <span>Console</span>
+                <span class="sc-clear" id="sc-clear">Clear</span>
+              </div>
+              <div class="sc-body" id="sc-body"></div>
+            </div>
+          </div>
+          <div class="studio-preview">
+            <iframe id="st-preview" sandbox="allow-scripts allow-forms allow-modals allow-popups allow-same-origin"></iframe>
+          </div>
+        </div>
+        <div class="studio-toolbar">
+          <button class="btn" id="st-run">${SVG.play} Run</button>
+          <button class="btn ghost" id="st-add-file">${SVG.plus} Add File</button>
+          <span class="st-info" id="st-info">Auto-preview runs on every edit. Console captures logs from your app.</span>
+          <button class="btn success" id="st-publish">${SVG.upload} Publish to App Store</button>
+        </div>
+      </div>`;
+
+    const tabsEl = body.querySelector('#st-tabs');
+    const editorWrap = body.querySelector('#st-editor');
+    const preview = body.querySelector('#st-preview');
+    const scBody = body.querySelector('#sc-body');
+
+    // CodeMirror instance — real syntax highlighting
+    let cm = null;
+    function getCMMode(type) {
+      if (type === 'css') return 'css';
+      if (type === 'js') return 'javascript';
+      return 'htmlmixed';
+    }
+    function initCM() {
+      if (typeof CodeMirror === 'undefined') return false;
+      // Clear any existing textarea/CM
+      editorWrap.innerHTML = '';
+      const t = project.tabs[project.activeTab];
+      cm = CodeMirror(editorWrap, {
+        value: t ? t.content : '',
+        mode: getCMMode(t ? t.type : 'html'),
+        theme: 'material-darker',
+        lineNumbers: true,
+        lineWrapping: false,
+        tabSize: 2,
+        indentUnit: 2,
+        indentWithTabs: false,
+        autoCloseTags: true,
+        autoCloseBrackets: true,
+        matchBrackets: true,
+        styleActiveLine: true,
+      });
+      cm.on('change', () => {
+        const ct = project.tabs[project.activeTab];
+        if (ct) ct.content = cm.getValue();
+        debouncePreview();
+      });
+      // Refresh after layout settles — CodeMirror needs explicit dimensions
+      setTimeout(() => { if (cm) cm.refresh(); }, 50);
+      setTimeout(() => { if (cm) cm.refresh(); }, 200);
+      return true;
+    }
+
+    function fileType(name) {
+      if (name.endsWith('.css')) return 'css';
+      if (name.endsWith('.js')) return 'js';
+      return 'html';
+    }
+    function fileDotColor(type) {
+      return type === 'css' ? '#0A84FF' : type === 'js' ? '#FFD60A' : '#FF6B81';
+    }
+
+    function renderTabs() {
+      tabsEl.innerHTML = '';
+      project.tabs.forEach((t, i) => {
+        const el = document.createElement('div');
+        el.className = 'studio-tab' + (i === project.activeTab ? ' active' : '');
+        el.innerHTML = `<span class="ft-dot" style="background:${fileDotColor(t.type)}"></span>${esc(t.name)} <span class="close-x" data-i="${i}">×</span>`;
+        el.addEventListener('click', (e) => {
+          if (e.target.classList.contains('close-x')) {
+            if (project.tabs.length === 1) return toast('Cannot delete', 'You need at least one file.');
+            const idx = parseInt(e.target.dataset.i);
+            project.tabs.splice(idx, 1);
+            if (project.activeTab >= project.tabs.length) project.activeTab = project.tabs.length - 1;
+            renderTabs(); loadTab(); runPreview();
+            return;
+          }
+          project.activeTab = i;
+          renderTabs(); loadTab();
+        });
+        tabsEl.appendChild(el);
+      });
+      const add = document.createElement('div');
+      add.className = 'studio-add-tab';
+      add.innerHTML = SVG.plus;
+      add.title = 'Add new file';
+      add.addEventListener('click', addFile);
+      tabsEl.appendChild(add);
+    }
+
+    function loadTab() {
+      const t = project.tabs[project.activeTab];
+      if (!t) return;
+      if (cm) {
+        cm.setOption('mode', getCMMode(t.type));
+        cm.setValue(t.content);
+      } else {
+        // Fallback: if CodeMirror failed to load, use a plain textarea
+        editorWrap.innerHTML = `<textarea style="width:100%;height:100%;background:#0a0a14;color:#e6e6e6;border:none;outline:none;padding:14px;font-family:'JetBrains Mono',monospace;font-size:13px;resize:none" spellcheck="false">${esc(t.content)}</textarea>`;
+        const ta = editorWrap.querySelector('textarea');
+        ta.addEventListener('input', () => {
+          t.content = ta.value;
+          debouncePreview();
+        });
+      }
+    }
+
+    function addFile() {
+      const name = prompt('File name (e.g. utils.js, theme.css, page.html):', 'newfile.js');
+      if (!name) return;
+      const type = fileType(name);
+      if (project.tabs.find(t => t.name === name)) return toast('Already exists', name + ' already in project');
+      project.tabs.push({ name, type, content: '' });
+      project.activeTab = project.tabs.length - 1;
+      renderTabs(); loadTab();
+    }
+
+    function buildHTML() {
+      const htmlTab = project.tabs.find(t => t.name.endsWith('.html')) || project.tabs.find(t => t.type === 'html');
+      const cssContent = project.tabs.filter(t => t.type === 'css').map(t => `/* ${t.name} */\n${t.content}`).join('\n\n');
+      const jsContent = project.tabs.filter(t => t.type === 'js').map(t => `/* ${t.name} */\n${t.content}`).join('\n\n');
+      const htmlContent = htmlTab ? htmlTab.content : '';
+      const consoleHook = `<script>(function(){
+        var send=function(level,args){
+          try{parent.postMessage({type:'studio-console',level:level,args:Array.prototype.map.call(args,function(a){try{return typeof a==='object'?JSON.stringify(a):String(a)}catch(e){return String(a)}})},'*')}catch(e){}
+        };
+        ['log','warn','error','info'].forEach(function(level){
+          var orig=console[level];
+          console[level]=function(){send(level,arguments);orig.apply(console,arguments)};
+        });
+        window.addEventListener('error',function(e){send('error',[e.message+' ('+e.filename+':'+e.lineno+')'])});
+      })();<\/script>`;
+      return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+        html,body{margin:0;padding:0;font-family:Inter,sans-serif;background:#1a1a28;color:#fff;min-height:100vh;}
+        *{box-sizing:border-box;}
+      </style><style>${cssContent}</style></head><body>${consoleHook}${htmlContent}<script>${jsContent}<\/script></body></html>`;
+    }
+
+    let previewTimer = null;
+    function debouncePreview() {
+      clearTimeout(previewTimer);
+      previewTimer = setTimeout(runPreview, 600);
+    }
+    function runPreview() {
+      preview.srcdoc = buildHTML();
+    }
+
+    // Console capture — only listen when this studio window is the active one
+    const msgHandler = (e) => {
+      if (e.data && e.data.type === 'studio-console') {
+        // Only capture if this studio window is focused/visible
+        if (!document.body.contains(body)) {
+          window.removeEventListener('message', msgHandler);
+          return;
+        }
+        const line = document.createElement('div');
+        line.className = 'sc-line ' + e.data.level;
+        const prefix = e.data.level === 'error' ? '[ERR]' : e.data.level === 'warn' ? '[WRN]' : e.data.level === 'info' ? '[INF]' : '>';
+        line.innerHTML = `<span class="sc-prefix">${prefix}</span>${esc(e.data.args.join(' '))}`;
+        scBody.appendChild(line);
+        scBody.scrollTop = scBody.scrollHeight;
+      }
+    };
+    window.addEventListener('message', msgHandler);
+    body.querySelector('#sc-clear').addEventListener('click', () => { scBody.innerHTML = ''; });
+
+    body.querySelector('#st-run').addEventListener('click', () => { runPreview(); toast('Preview refreshed', 'Running latest code.'); });
+    body.querySelector('#st-add-file').addEventListener('click', addFile);
+
+    // Publish flow
+    body.querySelector('#st-publish').addEventListener('click', () => {
+      const dlg = document.createElement('div');
+      dlg.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.75);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto';
+      dlg.innerHTML = `
+        <div class="form-card" style="width:100%;max-width:480px;background:rgba(28,28,44,0.95);max-height:90%;overflow-y:auto">
+          <h2 style="margin-bottom:6px;display:flex;align-items:center;gap:8px">${SVG.upload} Publish to App Store</h2>
+          <p style="color:var(--text-dim);font-size:12px;margin-bottom:14px">Your app will be saved on your device and appear in the App Store immediately.</p>
+          <label>App title</label>
+          <input class="inp" id="pub-title" placeholder="My Awesome App">
+          <label>Author</label>
+          <input class="inp" id="pub-author" value="${esc(getAuthor())}">
+          <label>Description</label>
+          <textarea class="inp" id="pub-desc" style="min-height:60px" placeholder="What does your app do?"></textarea>
+          <label>Cover image (optional)</label>
+          <div id="pub-cover-preview" style="width:100%;height:120px;border-radius:12px;margin-bottom:8px;background:rgba(255,255,255,0.05);border:1px dashed rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:12px">No image selected</div>
+          <div class="btn-row" style="margin-bottom:12px">
+            <label class="btn ghost" style="display:inline-flex;align-items:center;cursor:pointer">${SVG.image} Choose Image
+              <input type="file" id="pub-cover-file" accept="image/*" style="display:none">
+            </label>
+          </div>
+          <label>Category tags (pick up to 3)</label>
+          <div class="tag-grid" id="pub-tags">${STORE_TAGS.map(t => `<div class="tag-chip" data-tag="${t}">${t}</div>`).join('')}</div>
+          <label>Window size</label>
+          <div class="btn-row" style="margin-bottom:14px">
+            <input class="inp" id="pub-w" type="number" value="820" style="width:100px" placeholder="W">
+            <span style="color:var(--text-dim)">×</span>
+            <input class="inp" id="pub-h" type="number" value="580" style="width:100px" placeholder="H">
+          </div>
+          <div class="btn-row">
+            <button class="btn success" id="pub-go">${SVG.upload} Publish Now</button>
+            <button class="btn ghost" id="pub-cancel">Cancel</button>
+          </div>
+        </div>`;
+      body.appendChild(dlg);
+      const tags = [];
+      let coverData = null;
+      dlg.querySelectorAll('#pub-tags .tag-chip').forEach(c => c.addEventListener('click', () => {
+        const t = c.dataset.tag;
+        if (tags.includes(t)) { tags.splice(tags.indexOf(t), 1); c.classList.remove('active'); }
+        else if (tags.length < 3) { tags.push(t); c.classList.add('active'); }
+        else toast('Tag limit', 'You can pick up to 3 tags.');
+      }));
+      dlg.querySelector('#pub-cover-file').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) { toast('Too big', 'Cover image must be under 2MB.'); return; }
+        const reader = new FileReader();
+        reader.onload = () => {
+          coverData = reader.result;
+          const prev = dlg.querySelector('#pub-cover-preview');
+          prev.style.backgroundImage = `url("${coverData}")`;
+          prev.style.backgroundSize = 'cover';
+          prev.style.backgroundPosition = 'center';
+          prev.textContent = '';
+        };
+        reader.readAsDataURL(file);
+      });
+      dlg.querySelector('#pub-cancel').addEventListener('click', () => dlg.remove());
+      dlg.querySelector('#pub-go').addEventListener('click', () => {
+        const title = dlg.querySelector('#pub-title').value.trim();
+        const author = dlg.querySelector('#pub-author').value.trim() || 'Anonymous';
+        const desc = dlg.querySelector('#pub-desc').value.trim() || 'No description.';
+        const w = parseInt(dlg.querySelector('#pub-w').value) || 820;
+        const h = parseInt(dlg.querySelector('#pub-h').value) || 580;
+        if (!title) return alert('Please enter a title.');
+        const htmlTab = project.tabs.find(t => t.name.endsWith('.html')) || project.tabs.find(t => t.type === 'html');
+        const cssContent = project.tabs.filter(t => t.type === 'css').map(t => `/* ${t.name} */\n${t.content}`).join('\n\n');
+        const jsContent = project.tabs.filter(t => t.type === 'js').map(t => `/* ${t.name} */\n${t.content}`).join('\n\n');
+        const extraFiles = project.tabs.filter(t => !t.name.endsWith('.html') && !t.name.endsWith('.css') && !t.name.endsWith('.js')).map(t => ({ name: t.name, type: t.type, content: t.content }));
+        const appId = 'user-' + Date.now();
+        const app = {
+          id: appId, title, author, desc, tags: [...tags],
+          html: htmlTab ? htmlTab.content : '',
+          css: cssContent, js: jsContent, extraFiles,
+          cover: coverData, width: w, height: h,
+          downloads: 0, ratings: [], reviews: [],
+          createdAt: Date.now(), version: 1,
+        };
+        // Save locally on the creator's device
+        const apps = getUserApps();
+        apps.push(app);
+        saveUserApps(apps);
+        // Also push to the cloud so other devices can see it
+        toast('Publishing...', 'Uploading "' + title + '" to the cloud App Store.');
+        playSound('open');
+        dlg.remove();
+        publishAppToCloud(app).then((ok) => {
+          if (ok) {
+            const pub = getPublishedApps();
+            pub.push({ id: app.id, title: app.title, author: app.author, tags: app.tags, createdAt: app.createdAt });
+            savePublishedApps(pub);
+            toast('Published!', '"' + title + '" is live on the App Store for all devices.');
+          } else {
+            toast('Saved locally', '"' + title + '" is on your device. Cloud publish failed (check your connection).');
+          }
+        });
+      });
+    });
+
+    // Init
+    renderTabs();
+    // Show the textarea fallback IMMEDIATELY so Studio is usable
+    loadTab();
+    runPreview();
+    // Try to upgrade to CodeMirror (lazy load, non-blocking)
+    loadCodeMirror().then((ok) => {
+      if (ok && document.body.contains(body)) {
+        // Upgrade: replace the textarea with CodeMirror
+        editorWrap.innerHTML = '';
+        initCM();
+        loadTab();
+      }
+    });
+  }
+
+  /* ============================================================
+   * SETTINGS
+   * ============================================================ */
+  function renderSettings(body, win) {
+    const tab = lsGet(K_TAB, {});
+    const wall = lsGet(K_WALL, {});
+    const prefs = getPrefs();
+    body.innerHTML = `
+      <div class="nat">
+        <h1>Settings</h1>
+        <div class="sub">Customize your Comet-OS experience.</div>
+
+        <div class="settings-section">
+          <h3>Accent Color</h3>
+          <p>Used for buttons, icons, and highlights.</p>
+          <div class="swatch-mini-grid" id="set-colors"></div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Wallpaper</h3>
+          <p>Upload your own image or animated GIF, or use the classic gradient.</p>
+          <div id="wall-preview"></div>
+          <div class="btn-row">
+            <label class="btn" style="display:inline-flex;align-items:center;cursor:pointer">${SVG.upload} Upload Image / GIF
+              <input type="file" id="set-wall-file" accept="image/*,image/gif" style="display:none">
+            </label>
+            <input class="inp" id="set-wall-url" style="flex:1" placeholder="...or paste an image/GIF URL" value="${esc(wall.url && !wall.url.startsWith('data:') ? wall.url : '')}">
+            <button class="btn" id="set-wall-apply">Apply URL</button>
+            <button class="btn ghost" id="set-wall-reset">Reset</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Appearance</h3>
+          <div class="setting-row">
+            <div><div class="sr-label">Sounds</div><div class="sr-desc">Play sounds when opening/closing windows</div></div>
+            <label class="switch"><input type="checkbox" id="pref-sounds" ${prefs.sounds ? 'checked' : ''}><span class="slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <div><div class="sr-label">Animations</div><div class="sr-desc">Enable window open/close transitions</div></div>
+            <label class="switch"><input type="checkbox" id="pref-anim" ${prefs.animations ? 'checked' : ''}><span class="slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <div><div class="sr-label">Window snapping</div><div class="sr-desc">Drag windows to edges to snap</div></div>
+            <label class="switch"><input type="checkbox" id="pref-snap" ${prefs.snapZones ? 'checked' : ''}><span class="slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <div><div class="sr-label">Reduce transparency</div><div class="sr-desc">Use solid backgrounds instead of glass blur</div></div>
+            <label class="switch"><input type="checkbox" id="pref-trans" ${prefs.reduceTransparency ? 'checked' : ''}><span class="slider"></span></label>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Dock</h3>
+          <p>Customize which apps appear in your dock.</p>
+          <div class="btn-row">
+            <button class="btn ghost" id="dock-add">Add App to Dock</button>
+            <button class="btn ghost" id="dock-reset">Reset to Default</button>
+          </div>
+          <div id="dock-list" style="margin-top:14px"></div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Tab Title</h3>
+          <p>Change what the browser tab says.</p>
+          <div class="btn-row">
+            <input class="inp" id="set-title" style="flex:1" placeholder="e.g. Google Docs" value="${esc(tab.title || '')}">
+            <button class="btn" id="set-title-save">Save</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Tab Logo (Favicon)</h3>
+          <p>Paste an image URL or upload an image file.</p>
+          <div class="btn-row">
+            <input class="inp" id="set-icon" style="flex:1" placeholder="https://example.com/icon.png" value="${esc(tab.icon && !tab.icon.startsWith('data:') ? tab.icon : '')}">
+            <button class="btn" id="set-icon-save">Save</button>
+            <label class="btn ghost" style="display:inline-flex;align-items:center;cursor:pointer">${SVG.upload} Upload
+              <input type="file" id="set-icon-file" accept="image/*" style="display:none">
+            </label>
+            <button class="btn ghost" id="set-icon-reset">Reset</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Cloak (about:blank)</h3>
+          <p>Opens Comet-OS inside an about:blank page.</p>
+          <button class="btn" id="set-cloak">Launch in about:blank</button>
+        </div>
+
+        <div class="settings-section">
+          <h3>Tutorial</h3>
+          <p>Replay the walkthrough.</p>
+          <button class="btn ghost" id="set-tutorial">Replay Tutorial</button>
+        </div>
+
+        <div class="settings-section">
+          <h3>Danger Zone</h3>
+          <p>Reset everything: setup, accent, wallpaper, apps, dock, tab settings.</p>
+          <button class="btn danger" id="set-reset">${SVG.trash} Reset All Data</button>
+        </div>
+      </div>`;
+
+    // Accent
+    const grid = body.querySelector('#set-colors');
+    COLORS.forEach(c => {
+      const s = document.createElement('div');
+      s.className = 'swm' + (c === state.accent ? ' sel' : '');
+      s.style.background = c; s.title = c;
+      s.addEventListener('click', () => {
+        applyAccent(c);
+        const setup = lsGet(K_SETUP, {});
+        setup.accent = c;
+        lsSet(K_SETUP, setup);
+        grid.querySelectorAll('.swm').forEach(x => x.classList.remove('sel'));
+        s.classList.add('sel');
+      });
+      grid.appendChild(s);
+    });
+
+    // Wallpaper
+    const preview = body.querySelector('#wall-preview');
+    function updatePreview(url) {
+      if (url) {
+        preview.style.backgroundImage = `url("${url}")`;
+        preview.style.display = 'block';
+      } else {
+        preview.style.display = 'none';
+      }
+    }
+    updatePreview(wall.url);
+    function saveWall(url) {
+      lsSet(K_WALL, { url: url || '' });
+      applyWallpaper(url);
+      updatePreview(url);
+    }
+    body.querySelector('#set-wall-file').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 4.5 * 1024 * 1024) { toast('Too big', 'Max 4.5MB. Try a URL instead.'); return; }
+      const reader = new FileReader();
+      reader.onload = () => saveWall(reader.result);
+      reader.readAsDataURL(file);
+    });
+    body.querySelector('#set-wall-apply').addEventListener('click', () => saveWall(body.querySelector('#set-wall-url').value.trim()));
+    body.querySelector('#set-wall-reset').addEventListener('click', () => { body.querySelector('#set-wall-url').value = ''; saveWall(''); });
+
+    // Prefs
+    function bindPref(id, key) {
+      body.querySelector('#' + id).addEventListener('change', (e) => {
+        const p = getPrefs();
+        p[key] = e.target.checked;
+        setPrefs(p);
+      });
+    }
+    bindPref('pref-sounds', 'sounds');
+    bindPref('pref-anim', 'animations');
+    bindPref('pref-snap', 'snapZones');
+    bindPref('pref-trans', 'reduceTransparency');
+
+    // Dock management
+    function renderDockList() {
+      const list = body.querySelector('#dock-list');
+      const apps = getDockApps();
+      list.innerHTML = apps.map((id, i) => {
+        const def = BUILTIN_APPS[id] || getAppDef(id);
+        if (!def) return '';
+        return `<div class="setting-row" data-i="${i}">
+          <span style="width:24px;height:24px;display:flex">${SVG[def.icon] || SVG.app}</span>
+          <span class="sr-label">${esc(def.name)}</span>
+          <button class="btn ghost act-rm" data-i="${i}" style="padding:4px 10px">${SVG.trash}</button>
+        </div>`;
+      }).join('');
+      list.querySelectorAll('.act-rm').forEach(b => b.addEventListener('click', () => {
+        const i = parseInt(b.dataset.i);
+        const arr = getDockApps();
+        arr.splice(i, 1);
+        setDockApps(arr);
+        buildDock();
+        renderDockList();
+      }));
+    }
+    renderDockList();
+    body.querySelector('#dock-add').addEventListener('click', () => {
+      const docked = getDockApps();
+      const available = allAppsList().filter(a => !docked.includes(a.id));
+      if (!available.length) return toast('Dock full', 'All apps already in dock.');
+      const menu = document.createElement('div');
+      menu.className = 'ctx-menu open';
+      menu.style.position = 'fixed';
+      menu.style.left = '50%'; menu.style.top = '50%';
+      menu.style.transform = 'translate(-50%, -50%) scale(1)';
+      menu.style.opacity = '1'; menu.style.pointerEvents = 'auto';
+      menu.style.maxHeight = '320px'; menu.style.overflowY = 'auto';
+      menu.innerHTML = '<div style="font-size:11px;color:var(--text-dim);padding:6px 12px;text-transform:uppercase">Add to dock</div>';
+      available.forEach(a => {
+        const item = document.createElement('div');
+        item.className = 'ctx-item';
+        item.innerHTML = `<span style="width:18px;height:18px;display:flex">${SVG[a.icon] || SVG.app}</span><span>${esc(a.name)}</span>`;
+        item.addEventListener('click', () => {
+          setDockApps([...getDockApps(), a.id]);
+          buildDock(); renderDockList();
+          menu.remove();
+        });
+        menu.appendChild(item);
+      });
+      document.body.appendChild(menu);
+      setTimeout(() => {
+        const close = (e) => { if (!e.target.closest('.ctx-menu')) { menu.remove(); document.removeEventListener('click', close); } };
+        document.addEventListener('click', close);
+      }, 0);
+    });
+    body.querySelector('#dock-reset').addEventListener('click', () => {
+      setDockApps(['browser', 'store', 'settings']);
+      buildDock(); renderDockList();
+      toast('Dock reset', 'Back to default apps.');
+    });
+
+    // Tab title
+    body.querySelector('#set-title-save').addEventListener('click', () => {
+      const t = lsGet(K_TAB, {});
+      t.title = body.querySelector('#set-title').value.trim() || 'COMET-OS';
+      lsSet(K_TAB, t);
+      document.title = t.title;
+    });
+
+    // Tab icon
+    function saveIcon(url) {
+      const t = lsGet(K_TAB, {});
+      t.icon = url || '';
+      lsSet(K_TAB, t);
+      $('#favicon').href = url || 'data:,';
+    }
+    body.querySelector('#set-icon-save').addEventListener('click', () => saveIcon(body.querySelector('#set-icon').value.trim()));
+    body.querySelector('#set-icon-reset').addEventListener('click', () => { body.querySelector('#set-icon').value = ''; saveIcon(''); });
+    body.querySelector('#set-icon-file').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => saveIcon(reader.result);
+      reader.readAsDataURL(file);
+    });
+
+    // Cloak
+    body.querySelector('#set-cloak').addEventListener('click', () => {
+      const w = window.open('about:blank', '_blank');
+      if (!w) { alert('Popup blocked — allow popups for this site.'); return; }
+      const t = lsGet(K_TAB, {});
+      const icon = t.icon || '';
+      w.document.write(`<!DOCTYPE html><html><head><title>${esc(document.title)}</title>` +
+        (icon ? `<link rel="icon" href="${esc(icon)}">` : '') +
+        `</head><body style="margin:0;overflow:hidden"><iframe src="${location.href}" style="border:0;width:100vw;height:100vh"></iframe></body></html>`);
+      w.document.close();
+    });
+
+    body.querySelector('#set-tutorial').addEventListener('click', () => startTutorial());
+
+    body.querySelector('#set-reset').addEventListener('click', () => {
+      if (!confirm('Reset ALL Comet-OS data? Setup will run again on reload.')) return;
+      [K_SETUP, K_APPS, K_TUT, K_TAB, K_WALL, K_DOCK, K_PREFS, K_AUTHOR].forEach(k => { try { localStorage.removeItem(k); } catch {} });
+      location.reload();
+    });
+  }
+
+  /* ---------- Tutorial (spotlight + physical pointers) ---------- */
+  const TUT_STEPS = [
+    {
+      title: 'Welcome to COMET-OS',
+      text: 'Your desktop is clean and quiet. Let\'s take a quick tour so you know where everything lives. Click Next to begin — or Skip if you want to explore on your own.',
+      target: null,
+    },
+    {
+      title: 'The COMET-OS Menu',
+      text: 'Click "COMET-OS" in the top-left corner to open the dropdown menu. From here you can search for any app, and access Studio, App Store, Settings, and any apps you build.',
+      target: '#start-btn',
+      pointerPos: 'right',
+    },
+    {
+      title: 'The Clock',
+      text: 'In the top-right corner you\'ll always see the current time and date. Hover it for a subtle highlight.',
+      target: '#menubar .clock',
+      pointerPos: 'left',
+    },
+    {
+      title: 'The Dock (Hidden)',
+      text: 'The dock auto-hides. Move your cursor to the very bottom of the screen and the dock slides up with Browser, App Store, and Settings. Click any icon to open. Click again to minimize.',
+      target: '#dock-trigger',
+      pointerPos: 'top',
+      beforeShow: () => showDock(),
+    },
+    {
+      title: 'The Desktop',
+      text: 'The big open area is your desktop. Double-click anywhere on it for a quick menu — change wallpaper, open settings, or jump to the App Store and Studio.',
+      target: '#wallpaper',
+      pointerPos: 'center',
+    },
+    {
+      title: 'Build Apps in Studio',
+      text: 'Open the COMET-OS menu and pick Studio. You\'ll get a real code editor with syntax highlighting for HTML, CSS, and JavaScript, plus a live preview and console. Build something cool and click Publish.',
+      target: '#start-btn',
+      pointerPos: 'right',
+      beforeShow: () => { closeStartMenu(); },
+    },
+    {
+      title: 'Find Apps in the Store',
+      text: 'Apps you publish from Studio appear in the App Store. Browse by category (20 tags), rate apps, write reviews, and see your top-rated and most-opened apps.',
+      target: '#start-btn',
+      pointerPos: 'right',
+    },
+    {
+      title: 'Customize in Settings',
+      text: 'Open Settings to change your accent color, upload a wallpaper (images & GIFs!), toggle sounds and animations, manage your dock, rename the browser tab, and more. You\'re all set — enjoy COMET-OS!',
+      target: '#start-btn',
+      pointerPos: 'right',
+    },
+  ];
+  let tutIndex = 0;
+  let tutActive = false;
+
+  function startTutorial() {
+    tutIndex = 0;
+    tutActive = true;
+    const overlay = $('#tut-overlay');
+    overlay.classList.add('active');
+    renderTutStep();
+    $('#tb-next').onclick = () => {
+      if (tutIndex < TUT_STEPS.length - 1) { tutIndex++; renderTutStep(); }
+      else endTutorial();
+    };
+    $('#tb-skip').onclick = endTutorial;
+  }
+  function renderTutStep() {
+    const s = TUT_STEPS[tutIndex];
+    const overlay = $('#tut-overlay');
+    const pointer = $('#tut-pointer');
+    const bubble = $('#tut-bubble');
+    const ring = $('#tut-ring');
+    const top = overlay.querySelector('.tut-panel.top');
+    const bottom = overlay.querySelector('.tut-panel.bottom');
+    const left = overlay.querySelector('.tut-panel.left');
+    const right = overlay.querySelector('.tut-panel.right');
+
+    if (s.beforeShow) s.beforeShow();
+
+    $('#tb-step').textContent = 'Step ' + (tutIndex + 1) + ' of ' + TUT_STEPS.length;
+    $('#tb-title').textContent = s.title;
+    $('#tb-text').textContent = s.text;
+    $('#tb-next').textContent = tutIndex === TUT_STEPS.length - 1 ? 'Get Started' : 'Next';
+    $('#tb-dots').innerHTML = TUT_STEPS.map((_, i) => `<span class="${i === tutIndex ? 'on' : ''}"></span>`).join('');
+
+    const place = () => {
+      let el = s.target ? document.querySelector(s.target) : null;
+      if (s.target === '#dock-trigger') {
+        showDock();
+        const dockEl = document.querySelector('#dock-wrap');
+        if (dockEl) el = dockEl;
+      }
+      const VW = window.innerWidth, VH = window.innerHeight;
+      if (el) {
+        const r = el.getBoundingClientRect();
+        // Padding around the cutout
+        const pad = 10;
+        const cx = Math.max(0, r.left - pad);
+        const cy = Math.max(0, r.top - pad);
+        const cw = r.width + pad * 2;
+        const ch = r.height + pad * 2;
+        // 4 panels form the dark area around the cutout
+        overlay.classList.add('spotlight');
+        top.style.height = cy + 'px';
+        top.style.left = '0'; top.style.right = '0'; top.style.display = 'block';
+        bottom.style.height = Math.max(0, VH - (cy + ch)) + 'px';
+        bottom.style.left = '0'; bottom.style.right = '0'; bottom.style.display = 'block';
+        left.style.top = cy + 'px'; left.style.height = ch + 'px';
+        left.style.width = cx + 'px'; left.style.left = '0'; left.style.display = 'block';
+        right.style.top = cy + 'px'; right.style.height = ch + 'px';
+        right.style.width = Math.max(0, VW - (cx + cw)) + 'px'; right.style.right = '0'; right.style.display = 'block';
+        // Ring around the cutout
+        ring.style.left = cx + 'px';
+        ring.style.top = cy + 'px';
+        ring.style.width = cw + 'px';
+        ring.style.height = ch + 'px';
+        // Pointer — point AT the target, near its edge
+        let px, py;
+        const PS = 50;
+        if (s.pointerPos === 'right') { px = r.right + 12; py = r.top + r.height/2 - PS/2; }
+        else if (s.pointerPos === 'left') { px = r.left - PS - 12; py = r.top + r.height/2 - PS/2; }
+        else if (s.pointerPos === 'top') { px = r.left + r.width/2 - PS/2; py = r.top - PS - 12; }
+        else if (s.pointerPos === 'center') { px = r.left + r.width/2 - PS/2; py = r.top + r.height/2 - PS/2; }
+        else { px = r.right + 12; py = r.top - 20; }
+        px = Math.max(8, Math.min(VW - PS - 8, px));
+        py = Math.max(8, Math.min(VH - PS - 8, py));
+        pointer.style.left = px + 'px';
+        pointer.style.top = py + 'px';
+        pointer.classList.add('show');
+        // Bubble — placed in the largest empty area, NEVER overlapping the target
+        const bw = Math.min(400, VW - 32);
+        const bh = 200; // approximate
+        let bx, by;
+        const spaceRight = VW - (cx + cw);
+        const spaceLeft = cx;
+        const spaceBelow = VH - (cy + ch);
+        const spaceAbove = cy;
+        if (s.pointerPos === 'top' && spaceBelow > bh + 20) {
+          bx = Math.max(16, Math.min(VW - bw - 16, cx + cw/2 - bw/2));
+          by = cy + ch + 16;
+        } else if (spaceRight > bw + 20) {
+          bx = cx + cw + 16; by = Math.max(16, Math.min(VH - bh - 16, cy));
+        } else if (spaceLeft > bw + 20) {
+          bx = cx - bw - 16; by = Math.max(16, Math.min(VH - bh - 16, cy));
+        } else if (spaceBelow > bh + 20) {
+          bx = Math.max(16, Math.min(VW - bw - 16, cx + cw/2 - bw/2));
+          by = cy + ch + 16;
+        } else if (spaceAbove > bh + 20) {
+          bx = Math.max(16, Math.min(VW - bw - 16, cx + cw/2 - bw/2));
+          by = cy - bh - 16;
+        } else {
+          // Fallback: bottom center
+          bx = Math.max(16, (VW - bw) / 2);
+          by = Math.max(16, VH - bh - 24);
+        }
+        bx = Math.max(16, Math.min(VW - bw - 16, bx));
+        by = Math.max(16, Math.min(VH - bh - 16, by));
+        bubble.style.left = bx + 'px';
+        bubble.style.top = by + 'px';
+        bubble.style.width = bw + 'px';
+        requestAnimationFrame(() => bubble.classList.add('show'));
+      } else {
+        // No target — full dim, bubble at bottom center
+        overlay.classList.remove('spotlight');
+        top.style.height = '100%'; top.style.left = '0'; top.style.right = '0'; top.style.display = 'block';
+        bottom.style.display = 'none';
+        left.style.display = 'none';
+        right.style.display = 'none';
+        pointer.classList.remove('show');
+        const bw = Math.min(400, VW - 32);
+        bubble.style.left = ((VW - bw) / 2) + 'px';
+        bubble.style.top = 'auto';
+        bubble.style.bottom = '80px';
+        bubble.style.width = bw + 'px';
+        requestAnimationFrame(() => bubble.classList.add('show'));
+      }
+    };
+    // Wait a tick for layout (especially for dock to appear)
+    setTimeout(place, 120);
+  }
+  function endTutorial() {
+    tutActive = false;
+    const overlay = $('#tut-overlay');
+    overlay.classList.remove('active', 'spotlight');
+    $('#tut-pointer').classList.remove('show');
+    $('#tut-bubble').classList.remove('show');
+    lsSet(K_TUT, true);
+    scheduleHideDock();
+  }
+  // Re-render on resize so spotlight stays put
+  window.addEventListener('resize', () => {
+    if (tutActive) renderTutStep();
+  });
+
+  /* ---------- Setup ---------- */
+  const setupEl = $('#setup');
+  function loadSetup() {
+    const d = lsGet(K_SETUP, null);
+    return (d && d.accent) ? d : null;
+  }
+  function showStage(id) {
+    $$('.setup-stage').forEach(s => s.classList.remove('active'));
+    $(id).classList.add('active');
+  }
+  function startSetup() {
+    // Launch multiple comets on every boot
+    launchComets();
+
+    setTimeout(() => showStage('#stage-color'), 2800);
+
+    const grid = $('#color-grid');
+    COLORS.forEach((c) => {
+      const sw = document.createElement('div');
+      sw.className = 'swatch';
+      sw.style.background = c;
+      sw.title = c;
+      sw.addEventListener('click', () => {
+        grid.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+        sw.classList.add('selected');
+        applyAccent(c);
+        $('#btn-color-next').disabled = false;
+      });
+      grid.appendChild(sw);
+    });
+    $('#btn-color-next').addEventListener('click', () => showStage('#stage-wallpaper'));
+
+    // Wallpaper stage
+    let chosenWall = 'classic';
+    let uploadedUrl = null;
+    const preview = $('#setup-wall-preview');
+    $$('.wall-option').forEach(opt => {
+      opt.addEventListener('click', () => {
+        $$('.wall-option').forEach(o => o.classList.remove('selected'));
+        opt.classList.add('selected');
+        chosenWall = opt.dataset.wall;
+        if (chosenWall === 'upload') {
+          $('#setup-wall-file').click();
+        } else {
+          uploadedUrl = null;
+          preview.style.display = 'none';
+        }
+      });
+    });
+    $('#setup-wall-file').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) { $$('.wall-option')[0].click(); return; }
+      if (file.size > 4.5 * 1024 * 1024) {
+        toast('Too big', 'Max 4.5MB. Using classic wallpaper.');
+        $$('.wall-option')[0].click();
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        uploadedUrl = reader.result;
+        preview.style.backgroundImage = `url("${uploadedUrl}")`;
+        preview.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    });
+    $('#btn-wall-next').addEventListener('click', () => {
+      lsSet(K_SETUP, { accent: state.accent });
+      if (uploadedUrl) {
+        lsSet(K_WALL, { url: uploadedUrl });
+        applyWallpaper(uploadedUrl);
+      }
+      finishSetup();
+    });
+  }
+  function finishSetup() {
+    setupEl.classList.add('done');
+    setTimeout(() => { if (setupEl.parentNode) setupEl.remove(); }, 700);
+    state.booted = true;
+    if (!lsGet(K_TUT, false)) setTimeout(startTutorial, 400);
+  }
+
+  /* ---------- Boot ---------- */
+  $('#logo-svg').innerHTML = SVG.logo;
+  applyTabCustom();
+  applyWallpaper(lsGet(K_WALL, {}).url || '');
+  tickClock();
+  setInterval(tickClock, 1000);
+  buildDock();
+
+  // Comets on every boot
+  launchComets();
+
+  const saved = loadSetup();
+  if (saved) {
+    applyAccent(saved.accent);
+    finishSetup();
+  } else {
+    startSetup();
+  }
+})();
+</script>
+</body>
+</html>
